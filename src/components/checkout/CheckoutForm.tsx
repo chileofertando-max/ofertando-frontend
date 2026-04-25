@@ -1,0 +1,477 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import { useSession } from "next-auth/react";
+import { useCartStore } from "@/store/cart";
+import { usePixel } from "@/hooks/usePixel";
+import { Button } from "@/components/ui/Button";
+
+interface CheckoutFormData {
+  nombre: string;
+  apellido: string;
+  email: string;
+  telefono: string;
+  rut: string;
+  direccion: string;
+  ciudad: string;
+  region: string;
+}
+
+function formatPrice(price: number) {
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    minimumFractionDigits: 0,
+  }).format(price);
+}
+
+export function CheckoutForm() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [formData, setFormData] = useState<CheckoutFormData>({
+    nombre: "",
+    apellido: "",
+    email: "",
+    telefono: "",
+    rut: "",
+    direccion: "",
+    ciudad: "",
+    region: "",
+  });
+  const { data: session, status } = useSession();
+  const { items, total } = useCartStore();
+  const { trackInitiateCheckout } = usePixel();
+
+  useEffect(() => {
+    if (items.length > 0) {
+      trackInitiateCheckout(total());
+    }
+  }, [items.length, total, trackInitiateCheckout]);
+
+  useEffect(() => {
+    if (session?.user?.email && status === "authenticated") {
+      fetch("/api/user/shipping-data")
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.shippingData) {
+            setFormData((prev) => ({
+              ...prev,
+              nombre: data.shippingData.firstName || prev.nombre,
+              apellido: data.shippingData.lastName || prev.apellido,
+              email: data.shippingData.email || prev.email,
+              telefono: data.shippingData.telefono || prev.telefono,
+              direccion: data.shippingData.direccion || prev.direccion,
+              ciudad: data.shippingData.ciudad || prev.ciudad,
+              region: data.shippingData.region || prev.region,
+            }));
+          }
+        })
+        .catch(console.error);
+    }
+  }, [session?.user?.email, status]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (items.length === 0) {
+      setError("Tu carrito está vacío");
+      return;
+    }
+
+    if (
+      !formData.nombre ||
+      !formData.apellido ||
+      !formData.email ||
+      !formData.direccion
+    ) {
+      setError("Por favor completa todos los campos requeridos");
+      return;
+    }
+
+    const orderId = `ORD-${Date.now()}`;
+    const amount = total();
+
+    setIsLoading(true);
+
+    try {
+      trackInitiateCheckout(amount);
+
+      const response = await fetch("/api/transbank/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount,
+          orderId,
+          returnUrl: window.location.origin,
+          items,
+          formData,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!data.success || !data.token) {
+        throw new Error(data.error || "Error al iniciar pago");
+      }
+
+      sessionStorage.setItem(
+        "pendingOrder",
+        JSON.stringify({
+          orderId,
+          formData,
+          amount,
+        }),
+      );
+
+      const form = document.createElement("form");
+      form.action = data.url;
+      form.method = "POST";
+
+      const input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "token_ws";
+      input.value = data.token;
+
+      form.appendChild(input);
+      document.body.appendChild(form);
+      form.submit();
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "Error al procesar el pago",
+      );
+      setIsLoading(false);
+    }
+  };
+
+  if (items.length === 0) {
+    return (
+      <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border-subtle)] p-8 text-center">
+        <div className="w-16 h-16 bg-[var(--border-subtle)] rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-8 w-8 text-[var(--muted)]"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={1.5}
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272M6 20.25a.75.75 0 11-1.5 0 .75.75 0 011.5 0zm12.75 0a.75.75 0 11-1.5 0 .75.75 0 011.5 0z"
+            />
+          </svg>
+        </div>
+        <p className="text-[var(--muted-foreground)]">Tu carrito está vacío.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8">
+      <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border-subtle)] p-6 lg:p-8">
+        <h2 className="text-heading-lg text-[var(--foreground)] mb-6">
+          Datos del comprador
+        </h2>
+
+        {error && (
+          <div className="mb-6 p-4 bg-[var(--destructive-muted)] border border-[var(--destructive)]/20 rounded-xl text-[var(--destructive)] text-sm">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label
+                htmlFor="nombre"
+                className="block text-sm font-medium text-[var(--foreground)] mb-2"
+              >
+                Nombre
+              </label>
+              <input
+                type="text"
+                id="nombre"
+                name="nombre"
+                value={formData.nombre}
+                onChange={handleChange}
+                required
+                className="input"
+                placeholder="Juan"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="apellido"
+                className="block text-sm font-medium text-[var(--foreground)] mb-2"
+              >
+                Apellido
+              </label>
+              <input
+                type="text"
+                id="apellido"
+                name="apellido"
+                value={formData.apellido}
+                onChange={handleChange}
+                required
+                className="input"
+                placeholder="Pérez"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-[var(--foreground)] mb-2"
+              >
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="input"
+                placeholder="juan@email.cl"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="telefono"
+                className="block text-sm font-medium text-[var(--foreground)] mb-2"
+              >
+                Teléfono
+              </label>
+              <input
+                type="tel"
+                id="telefono"
+                name="telefono"
+                value={formData.telefono}
+                onChange={handleChange}
+                className="input"
+                placeholder="+56 9 1234 5678"
+                required
+              />
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="rut"
+              className="block text-sm font-medium text-[var(--foreground)] mb-2"
+            >
+              RUT
+            </label>
+            <input
+              type="text"
+              id="rut"
+              name="rut"
+              value={formData.rut}
+              onChange={handleChange}
+              className="input"
+              placeholder="12.345.678-9"
+              required
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="direccion"
+              className="block text-sm font-medium text-[var(--foreground)] mb-2"
+            >
+              Dirección de envío
+            </label>
+            <input
+              type="text"
+              id="direccion"
+              name="direccion"
+              value={formData.direccion}
+              onChange={handleChange}
+              required
+              className="input"
+              placeholder="Av. Principal 123, Depto 45"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <label
+                htmlFor="ciudad"
+                className="block text-sm font-medium text-[var(--foreground)] mb-2"
+              >
+                Ciudad
+              </label>
+              <input
+                type="text"
+                id="ciudad"
+                name="ciudad"
+                value={formData.ciudad}
+                onChange={handleChange}
+                className="input"
+                placeholder="Santiago"
+                required
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="region"
+                className="block text-sm font-medium text-[var(--foreground)] mb-2"
+              >
+                Región
+              </label>
+              <input
+                type="text"
+                id="region"
+                name="region"
+                value={formData.region}
+                onChange={handleChange}
+                className="input"
+                placeholder="Región Metropolitana"
+                required
+              />
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            disabled={isLoading}
+            size="lg"
+            className="w-full mt-6"
+          >
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                    fill="none"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Procesando...
+              </span>
+            ) : (
+              <>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
+                  />
+                </svg>
+                Pagar con Webpay
+              </>
+            )}
+          </Button>
+
+          <p className="text-xs text-[var(--muted)] text-center mt-4">
+            Al hacer clic en &quot;Pagar con Webpay&quot;, serás redirigido a la
+            plataforma segura de Transbank.
+          </p>
+        </form>
+      </div>
+
+      <div className="lg:pl-4">
+        <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border-subtle)] p-6 lg:p-8 sticky top-24">
+          <h2 className="text-heading-md text-[var(--foreground)] mb-6">
+            Resumen del pedido
+          </h2>
+
+          <div className="space-y-4 mb-6 max-h-72 overflow-y-auto">
+            {items.map((item) => (
+              <div key={item.id} className="flex gap-4">
+                <div className="relative w-14 h-14 bg-[var(--border-subtle)] rounded-lg overflow-hidden flex-shrink-0">
+                  {item.image && (
+                    <Image
+                      src={item.image}
+                      alt={item.name}
+                      fill
+                      className="object-cover"
+                      sizes="56px"
+                    />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-[var(--foreground)] line-clamp-1">
+                    {item.name}
+                  </p>
+                  <p className="text-xs text-[var(--muted)]">
+                    Cantidad: {item.quantity}
+                  </p>
+                </div>
+                <div className="text-sm font-semibold text-[var(--foreground)]">
+                  {formatPrice(item.price * item.quantity)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-[var(--border)] pt-4 space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-[var(--muted-foreground)]">Subtotal</span>
+              <span className="font-medium">{formatPrice(total())}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-[var(--muted-foreground)]">Envío</span>
+              <span className="font-medium">Por confirmar</span>
+            </div>
+            <div className="flex justify-between pt-3 border-t border-[var(--border)]">
+              <span className="font-semibold text-[var(--foreground)]">
+                Total
+              </span>
+              <span className="text-xl font-bold text-[var(--foreground)]">
+                {formatPrice(total())}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-6 p-4 bg-[var(--success-muted)] rounded-xl">
+            <div className="flex items-center gap-2 text-sm text-[var(--success)]">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-5 w-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
+                />
+              </svg>
+              <span>Pago 100% seguro mediante Transbank Webpay Plus</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
