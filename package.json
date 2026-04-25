@@ -1,0 +1,45 @@
+{
+  "name": "tienda-ricardo",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@apollo/client": "^4.1.6",
+    "@hookform/resolvers": "^5.2.2",
+    "@next/third-parties": "^14.2.35",
+    "graphql": "^16.13.2",
+    "graphql-request": "^7.4.0",
+    "next": "14.2.35",
+    "next-auth": "^4.24.13",
+    "react": "^18",
+    "react-dom": "^18",
+    "react-facebook-pixel": "^1.0.4",
+    "react-hook-form": "^7.72.1",
+    "rxjs": "^7.8.2",
+    "sharp": "^0.33.5",
+    "transbank-sdk": "^4.0.0",
+    "zod": "^4.3.6",
+    "zustand": "^4.5.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.39",
+    "@types/react": "^18.3.28",
+    "@types/react-dom": "^18.3.7",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "^14.2.35",
+    "postcss": "^8",
+    "prettier": "^3.8.1",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.9.3"
+  }
+}
