@@ -66,16 +66,16 @@ export default function PagoTransferencia({
         <div className="mt-5 rounded-lg bg-gray-50 p-4 border">
           <h3 className="font-semibold mb-2">Datos para transferencia</h3>
 
-          <p><strong>Banco:</strong> Banco a definir</p>
-          <p><strong>Tipo de cuenta:</strong> Cuenta corriente</p>
-          <p><strong>Número de cuenta:</strong> 000000000</p>
-          <p><strong>Nombre:</strong> Ofertando.cl</p>
-          <p><strong>RUT:</strong> 00.000.000-0</p>
-          <p><strong>Correo:</strong> pagos@ofertando.cl</p>
+          <p><strong>Banco:</strong> Banco Chile</p>
+          <p><strong>Tipo de cuenta:</strong> Cuenta Vista/p>
+          <p><strong>Número de cuenta:</strong> 172422241</p>
+          <p><strong>Nombre:</strong> Ofertando SpA</p>
+          <p><strong>RUT:</strong> 77156739-8</p>
+          <p><strong>Correo:</strong> Chileofertando@gmail.com</p>
         </div>
 
         <p className="mt-4 text-sm text-gray-600">
-          Una vez realizada la transferencia, envía el comprobante indicando el número de orden.
+          Una vez realizada la transferencia, envía el comprobante indicando el número de orden. por WhatSaap en la misma pagina puetas usar botones Te ayudamos? o consulta poe WhatSapp
         </p>
 
         {ordenCreada?.orden_id && (
