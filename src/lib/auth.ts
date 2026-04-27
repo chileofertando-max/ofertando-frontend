@@ -1,16 +1,21 @@
 import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 
+const authSecret = process.env.NEXTAUTH_SECRET || process.env.AUTH_SECRET;
+
 function getWordPressRestUrl() {
   const rawUrl =
     process.env.WORDPRESS_API_URL || process.env.NEXT_PUBLIC_WP_REST_URL || "";
 
-  if (!rawUrl) return "";
+  if (!rawUrl) {
+    console.error(
+      "Falta configurar WORDPRESS_API_URL o NEXT_PUBLIC_WP_REST_URL. Ejemplo: https://admin.ofertando.cl/wp-json"
+    );
+    return "";
+  }
 
-  // Debe quedar como: https://dominio.cl/wp-json
   let url = rawUrl.trim().replace(/\/+$/, "");
 
-  // Si por error pusiste solo https://dominio.cl, agregamos /wp-json
   if (!url.endsWith("/wp-json")) {
     url = `${url}/wp-json`;
   }
@@ -26,6 +31,7 @@ export const authOptions: AuthOptions = {
         username: { label: "Email", type: "email" },
         password: { label: "Contraseña", type: "password" },
       },
+
       async authorize(credentials) {
         const username = credentials?.username?.trim().toLowerCase();
         const password = credentials?.password;
@@ -37,9 +43,6 @@ export const authOptions: AuthOptions = {
         const wpUrl = getWordPressRestUrl();
 
         if (!wpUrl) {
-          console.error(
-            "Falta configurar WORDPRESS_API_URL o NEXT_PUBLIC_WP_REST_URL. Ejemplo: https://ofertando.cl/wp-json",
-          );
           return null;
         }
 
@@ -48,6 +51,7 @@ export const authOptions: AuthOptions = {
             method: "POST",
             headers: {
               "Content-Type": "application/x-www-form-urlencoded",
+              Accept: "application/json",
             },
             body: new URLSearchParams({
               username,
@@ -69,12 +73,10 @@ export const authOptions: AuthOptions = {
           if (!res.ok || !data?.token) {
             console.error("Fallo login WordPress JWT:", {
               status: res.status,
-              message: data?.message,
               code: data?.code,
+              message: data?.message,
             });
 
-            // Importante: retornar null y no lanzar throw.
-            // Así NextAuth responde como credenciales inválidas y no como error Configuration.
             return null;
           }
 
@@ -91,40 +93,57 @@ export const authOptions: AuthOptions = {
       },
     }),
   ],
+
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
-        token.wpToken = (user as { token?: string }).token;
-        token.id = (user as { id?: string }).id;
-        token.name = (user as { name?: string }).name;
-        token.email = (user as { email?: string }).email;
+        const wpUser = user as {
+          id?: string;
+          name?: string | null;
+          email?: string | null;
+          token?: string;
+        };
+
+        token.wpToken = wpUser.token;
+        token.id = wpUser.id;
+        token.name = wpUser.name;
+        token.email = wpUser.email;
       }
+
       return token;
     },
+
     async session({ session, token }) {
-      const extendedSession = session as {
+      const extendedSession = session as typeof session & {
         wpToken?: string;
-        user: { id?: string; email?: string; name?: string | null };
+        user: {
+          id?: string;
+          email?: string | null;
+          name?: string | null;
+        };
       };
 
       extendedSession.wpToken = token.wpToken as string | undefined;
 
       if (extendedSession.user) {
-        extendedSession.user.id = token.id as string;
-        extendedSession.user.email = token.email as string;
+        extendedSession.user.id = token.id as string | undefined;
+        extendedSession.user.email = token.email as string | null | undefined;
         extendedSession.user.name = token.name as string | null | undefined;
       }
 
-      return extendedSession as typeof session;
+      return extendedSession;
     },
   },
+
   pages: {
     signIn: "/login",
     error: "/login",
   },
+
   session: {
     strategy: "jwt",
     maxAge: 24 * 60 * 60,
   },
-  secret: process.env.NEXTAUTH_SECRET,
+
+  secret: authSecret,
 };
