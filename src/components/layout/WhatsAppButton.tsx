@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 
 const WHATSAPP_NUMBER = "56978953903";
+const STORAGE_ACTIVO = "ofertando_whatsapp_context";
+const STORAGE_SEGUNDA_OPORTUNIDAD =
+  "ofertando_whatsapp_segunda_oportunidad";
 
 type WhatsAppContext = {
   tipo?: string;
@@ -12,6 +15,7 @@ type WhatsAppContext = {
   numeroOrden?: string;
   total?: number;
   fecha?: string;
+  modo?: "activo" | "segunda_oportunidad";
 };
 
 function crearWhatsappUrl(numero: string, mensaje: string) {
@@ -29,23 +33,41 @@ export function WhatsAppButton() {
   useEffect(() => {
     function cargarContextoWhatsapp() {
       try {
-        const raw = localStorage.getItem("ofertando_whatsapp_context");
+        const rawActivo = localStorage.getItem(STORAGE_ACTIVO);
 
-        if (!raw) {
-          setWhatsappContext(null);
-          return;
+        if (rawActivo) {
+          const data = JSON.parse(rawActivo);
+
+          if (
+            data?.tipo === "comprobante_transferencia" &&
+            (data?.mensaje || data?.url)
+          ) {
+            setWhatsappContext({
+              ...data,
+              modo: "activo",
+            });
+            return;
+          }
         }
 
-        const data = JSON.parse(raw);
+        const rawSegunda = localStorage.getItem(STORAGE_SEGUNDA_OPORTUNIDAD);
 
-        if (
-          data?.tipo === "comprobante_transferencia" &&
-          (data?.mensaje || data?.url)
-        ) {
-          setWhatsappContext(data);
-        } else {
-          setWhatsappContext(null);
+        if (rawSegunda) {
+          const data = JSON.parse(rawSegunda);
+
+          if (
+            data?.tipo === "comprobante_transferencia" &&
+            (data?.mensaje || data?.url)
+          ) {
+            setWhatsappContext({
+              ...data,
+              modo: "segunda_oportunidad",
+            });
+            return;
+          }
         }
+
+        setWhatsappContext(null);
       } catch {
         setWhatsappContext(null);
       }
@@ -73,19 +95,65 @@ export function WhatsAppButton() {
   const tienePedidoTransferencia =
     whatsappContext?.tipo === "comprobante_transferencia";
 
+  const esPrimerEnvio =
+    tienePedidoTransferencia && whatsappContext?.modo === "activo";
+
+  const esSegundaOportunidad =
+    tienePedidoTransferencia &&
+    whatsappContext?.modo === "segunda_oportunidad";
+
   const message = whatsappContext?.mensaje || getMensajeNormal();
 
   const whatsappUrl =
     whatsappContext?.url ||
     crearWhatsappUrl(whatsappContext?.numero || WHATSAPP_NUMBER, message);
 
-  const buttonText = tienePedidoTransferencia
-    ? "Enviar comprobante"
-    : "¿Te ayudamos?";
+  const buttonText = esPrimerEnvio ? "Enviar comprobante" : "¿Te ayudamos?";
 
-  const ariaLabel = tienePedidoTransferencia
+  const ariaLabel = esPrimerEnvio
     ? "Enviar comprobante por WhatsApp"
     : "Contactar por WhatsApp";
+
+  const handleClick = () => {
+    if (esPrimerEnvio && whatsappContext) {
+      /*
+        Primer intento:
+        Se abre WhatsApp con todos los datos.
+        Luego el botón vuelve visualmente a “¿Te ayudamos?”,
+        pero conserva una segunda oportunidad con el mismo mensaje.
+      */
+      setTimeout(() => {
+        localStorage.removeItem(STORAGE_ACTIVO);
+
+        localStorage.setItem(
+          STORAGE_SEGUNDA_OPORTUNIDAD,
+          JSON.stringify({
+            ...whatsappContext,
+            modo: "segunda_oportunidad",
+          }),
+        );
+
+        setWhatsappContext({
+          ...whatsappContext,
+          modo: "segunda_oportunidad",
+        });
+      }, 1000);
+
+      return;
+    }
+
+    if (esSegundaOportunidad) {
+      /*
+        Segunda oportunidad:
+        Se abre WhatsApp otra vez con los datos del pedido.
+        Luego se elimina el contexto y el botón vuelve al mensaje normal.
+      */
+      setTimeout(() => {
+        localStorage.removeItem(STORAGE_SEGUNDA_OPORTUNIDAD);
+        setWhatsappContext(null);
+      }, 1000);
+    }
+  };
 
   return (
     <a
@@ -94,10 +162,17 @@ export function WhatsAppButton() {
       rel="noopener noreferrer"
       aria-label={ariaLabel}
       title={
-        tienePedidoTransferencia
-          ? `Enviar comprobante del pedido ${whatsappContext?.numeroOrden || ""}`
-          : "Contactar por WhatsApp"
+        esPrimerEnvio
+          ? `Enviar comprobante del pedido ${
+              whatsappContext?.numeroOrden || ""
+            }`
+          : esSegundaOportunidad
+            ? `Tienes una oportunidad más para enviar los datos del pedido ${
+                whatsappContext?.numeroOrden || ""
+              }`
+            : "Contactar por WhatsApp"
       }
+      onClick={handleClick}
       className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-2xl bg-[var(--success)] px-4 py-3 text-white shadow-lg transition-all duration-300 hover:scale-105 hover:shadow-xl hover:bg-[var(--success)]/90 active:scale-95 group"
       style={{ boxShadow: "0 4px 20px rgba(5, 150, 105, 0.3)" }}
     >
