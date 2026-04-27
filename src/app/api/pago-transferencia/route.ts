@@ -22,7 +22,7 @@ export async function POST(req: Request) {
 
     const wpUrl = getWordPressRestUrl();
 
-    const response = await fetch(`${wpUrl}/wp-content/plugins/woocommerce/includes/gateways/bacs`, {
+    const response = await fetch(`${wpUrl}/ofertando/v1/pago-transferencia`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
