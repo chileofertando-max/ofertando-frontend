@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { useCartStore } from "@/store/cart";
 import { usePixel } from "@/hooks/usePixel";
 import { Button } from "@/components/ui/Button";
+import PagoTransferencia from "./PagoTransferencia";
 
 interface CheckoutFormData {
   nombre: string;
@@ -18,6 +19,8 @@ interface CheckoutFormData {
   region: string;
 }
 
+type PaymentMethod = "webpay" | "transferencia";
+
 function formatPrice(price: number) {
   return new Intl.NumberFormat("es-CL", {
     style: "currency",
@@ -29,6 +32,8 @@ function formatPrice(price: number) {
 export function CheckoutForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("webpay");
+
   const [formData, setFormData] = useState<CheckoutFormData>({
     nombre: "",
     apellido: "",
@@ -39,9 +44,49 @@ export function CheckoutForm() {
     ciudad: "",
     region: "",
   });
+
   const { data: session, status } = useSession();
   const { items, total } = useCartStore();
   const { trackInitiateCheckout } = usePixel();
+
+  const amount = total();
+
+  const isBuyerDataComplete =
+    formData.nombre.trim() !== "" &&
+    formData.apellido.trim() !== "" &&
+    formData.email.trim() !== "" &&
+    formData.telefono.trim() !== "" &&
+    formData.rut.trim() !== "" &&
+    formData.direccion.trim() !== "" &&
+    formData.ciudad.trim() !== "" &&
+    formData.region.trim() !== "";
+
+  const carritoPagoTransferencia = items.map((item) => ({
+    id: item.id,
+    nombre: item.name,
+    name: item.name,
+    precio: Number(item.price || 0),
+    price: Number(item.price || 0),
+    cantidad: Number(item.quantity || 1),
+    quantity: Number(item.quantity || 1),
+    imagen: item.image,
+    image: item.image,
+    subtotal: Number(item.price || 0) * Number(item.quantity || 1),
+  }));
+
+  const compradorPagoTransferencia = {
+    nombre: `${formData.nombre} ${formData.apellido}`.trim(),
+    nombres: formData.nombre,
+    apellido: formData.apellido,
+    email: formData.email,
+    correo: formData.email,
+    telefono: formData.telefono,
+    rut: formData.rut,
+    direccion: formData.direccion,
+    ciudad: formData.ciudad,
+    region: formData.region,
+    total: amount,
+  };
 
   useEffect(() => {
     if (items.length > 0) {
@@ -76,27 +121,30 @@ export function CheckoutForm() {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handlePaymentMethodChange = (method: PaymentMethod) => {
+    setError("");
+    setPaymentMethod(method);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    if (paymentMethod !== "webpay") {
+      return;
+    }
 
     if (items.length === 0) {
       setError("Tu carrito está vacío");
       return;
     }
 
-    if (
-      !formData.nombre ||
-      !formData.apellido ||
-      !formData.email ||
-      !formData.direccion
-    ) {
+    if (!isBuyerDataComplete) {
       setError("Por favor completa todos los campos requeridos");
       return;
     }
 
     const orderId = `ORD-${Date.now()}`;
-    const amount = total();
 
     setIsLoading(true);
 
@@ -143,9 +191,7 @@ export function CheckoutForm() {
       document.body.appendChild(form);
       form.submit();
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Error al procesar el pago",
-      );
+      setError(err instanceof Error ? err.message : "Error al procesar el pago");
       setIsLoading(false);
     }
   };
@@ -176,225 +222,317 @@ export function CheckoutForm() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8">
-      <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border-subtle)] p-6 lg:p-8">
-        <h2 className="text-heading-lg text-[var(--foreground)] mb-6">
-          Datos del comprador
-        </h2>
+      <div>
+        <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border-subtle)] p-6 lg:p-8">
+          <h2 className="text-heading-lg text-[var(--foreground)] mb-6">
+            Datos del comprador
+          </h2>
 
-        {error && (
-          <div className="mb-6 p-4 bg-[var(--destructive-muted)] border border-[var(--destructive)]/20 rounded-xl text-[var(--destructive)] text-sm">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label
-                htmlFor="nombre"
-                className="block text-sm font-medium text-[var(--foreground)] mb-2"
-              >
-                Nombre
-              </label>
-              <input
-                type="text"
-                id="nombre"
-                name="nombre"
-                value={formData.nombre}
-                onChange={handleChange}
-                required
-                className="input"
-                placeholder="Juan"
-              />
+          {error && (
+            <div className="mb-6 p-4 bg-[var(--destructive-muted)] border border-[var(--destructive)]/20 rounded-xl text-[var(--destructive)] text-sm">
+              {error}
             </div>
-            <div>
-              <label
-                htmlFor="apellido"
-                className="block text-sm font-medium text-[var(--foreground)] mb-2"
-              >
-                Apellido
-              </label>
-              <input
-                type="text"
-                id="apellido"
-                name="apellido"
-                value={formData.apellido}
-                onChange={handleChange}
-                required
-                className="input"
-                placeholder="Pérez"
-              />
-            </div>
-          </div>
+          )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label
-                htmlFor="email"
-                className="block text-sm font-medium text-[var(--foreground)] mb-2"
-              >
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="input"
-                placeholder="juan@email.cl"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="telefono"
-                className="block text-sm font-medium text-[var(--foreground)] mb-2"
-              >
-                Teléfono
-              </label>
-              <input
-                type="tel"
-                id="telefono"
-                name="telefono"
-                value={formData.telefono}
-                onChange={handleChange}
-                className="input"
-                placeholder="+56 9 1234 5678"
-                required
-              />
-            </div>
-          </div>
-
-          <div>
-            <label
-              htmlFor="rut"
-              className="block text-sm font-medium text-[var(--foreground)] mb-2"
-            >
-              RUT
-            </label>
-            <input
-              type="text"
-              id="rut"
-              name="rut"
-              value={formData.rut}
-              onChange={handleChange}
-              className="input"
-              placeholder="12.345.678-9"
-              required
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="direccion"
-              className="block text-sm font-medium text-[var(--foreground)] mb-2"
-            >
-              Dirección de envío
-            </label>
-            <input
-              type="text"
-              id="direccion"
-              name="direccion"
-              value={formData.direccion}
-              onChange={handleChange}
-              required
-              className="input"
-              placeholder="Av. Principal 123, Depto 45"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div>
-              <label
-                htmlFor="ciudad"
-                className="block text-sm font-medium text-[var(--foreground)] mb-2"
-              >
-                Ciudad
-              </label>
-              <input
-                type="text"
-                id="ciudad"
-                name="ciudad"
-                value={formData.ciudad}
-                onChange={handleChange}
-                className="input"
-                placeholder="Santiago"
-                required
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="region"
-                className="block text-sm font-medium text-[var(--foreground)] mb-2"
-              >
-                Región
-              </label>
-              <input
-                type="text"
-                id="region"
-                name="region"
-                value={formData.region}
-                onChange={handleChange}
-                className="input"
-                placeholder="Región Metropolitana"
-                required
-              />
-            </div>
-          </div>
-
-          <Button
-            type="submit"
-            disabled={isLoading}
-            size="lg"
-            className="w-full mt-6"
-          >
-            {isLoading ? (
-              <span className="flex items-center gap-2">
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                    fill="none"
-                  />
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  />
-                </svg>
-                Procesando...
-              </span>
-            ) : (
-              <>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label
+                  htmlFor="nombre"
+                  className="block text-sm font-medium text-[var(--foreground)] mb-2"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
-                  />
-                </svg>
-                Pagar con Webpay
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  id="nombre"
+                  name="nombre"
+                  value={formData.nombre}
+                  onChange={handleChange}
+                  required
+                  className="input"
+                  placeholder="Juan"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="apellido"
+                  className="block text-sm font-medium text-[var(--foreground)] mb-2"
+                >
+                  Apellido
+                </label>
+                <input
+                  type="text"
+                  id="apellido"
+                  name="apellido"
+                  value={formData.apellido}
+                  onChange={handleChange}
+                  required
+                  className="input"
+                  placeholder="Pérez"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-[var(--foreground)] mb-2"
+                >
+                  Email
+                </label>
+                <input
+                  type="email"
+                  id="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  required
+                  className="input"
+                  placeholder="juan@email.cl"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="telefono"
+                  className="block text-sm font-medium text-[var(--foreground)] mb-2"
+                >
+                  Teléfono
+                </label>
+                <input
+                  type="tel"
+                  id="telefono"
+                  name="telefono"
+                  value={formData.telefono}
+                  onChange={handleChange}
+                  className="input"
+                  placeholder="+56 9 1234 5678"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label
+                htmlFor="rut"
+                className="block text-sm font-medium text-[var(--foreground)] mb-2"
+              >
+                RUT
+              </label>
+              <input
+                type="text"
+                id="rut"
+                name="rut"
+                value={formData.rut}
+                onChange={handleChange}
+                className="input"
+                placeholder="12.345.678-9"
+                required
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="direccion"
+                className="block text-sm font-medium text-[var(--foreground)] mb-2"
+              >
+                Dirección de envío
+              </label>
+              <input
+                type="text"
+                id="direccion"
+                name="direccion"
+                value={formData.direccion}
+                onChange={handleChange}
+                required
+                className="input"
+                placeholder="Av. Principal 123, Depto 45"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div>
+                <label
+                  htmlFor="ciudad"
+                  className="block text-sm font-medium text-[var(--foreground)] mb-2"
+                >
+                  Ciudad
+                </label>
+                <input
+                  type="text"
+                  id="ciudad"
+                  name="ciudad"
+                  value={formData.ciudad}
+                  onChange={handleChange}
+                  className="input"
+                  placeholder="Santiago"
+                  required
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="region"
+                  className="block text-sm font-medium text-[var(--foreground)] mb-2"
+                >
+                  Región
+                </label>
+                <input
+                  type="text"
+                  id="region"
+                  name="region"
+                  value={formData.region}
+                  onChange={handleChange}
+                  className="input"
+                  placeholder="Región Metropolitana"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="pt-4">
+              <h3 className="text-base font-semibold text-[var(--foreground)] mb-3">
+                Método de pago
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label
+                  className={`cursor-pointer rounded-xl border p-4 transition-all ${
+                    paymentMethod === "webpay"
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                      : "border-[var(--border-subtle)] bg-[var(--surface)]"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="webpay"
+                      checked={paymentMethod === "webpay"}
+                      onChange={() => handlePaymentMethodChange("webpay")}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="font-semibold text-[var(--foreground)]">
+                        Webpay
+                      </p>
+                      <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                        Pago en línea mediante Transbank.
+                      </p>
+                    </div>
+                  </div>
+                </label>
+
+                <label
+                  className={`cursor-pointer rounded-xl border p-4 transition-all ${
+                    paymentMethod === "transferencia"
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                      : "border-[var(--border-subtle)] bg-[var(--surface)]"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="transferencia"
+                      checked={paymentMethod === "transferencia"}
+                      onChange={() =>
+                        handlePaymentMethodChange("transferencia")
+                      }
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="font-semibold text-[var(--foreground)]">
+                        Transferencia bancaria
+                      </p>
+                      <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                        La orden queda pendiente hasta confirmar el pago.
+                      </p>
+                    </div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {paymentMethod === "webpay" && (
+              <>
+                <Button
+                  type="submit"
+                  disabled={isLoading}
+                  size="lg"
+                  className="w-full mt-6"
+                >
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <svg
+                        className="animate-spin h-5 w-5"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                          fill="none"
+                        />
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        />
+                      </svg>
+                      Procesando...
+                    </span>
+                  ) : (
+                    <>
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={2}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z"
+                        />
+                      </svg>
+                      Pagar con Webpay
+                    </>
+                  )}
+                </Button>
+
+                <p className="text-xs text-[var(--muted)] text-center mt-4">
+                  Al hacer clic en &quot;Pagar con Webpay&quot;, serás
+                  redirigido a la plataforma segura de Transbank.
+                </p>
               </>
             )}
-          </Button>
+          </form>
 
-          <p className="text-xs text-[var(--muted)] text-center mt-4">
-            Al hacer clic en &quot;Pagar con Webpay&quot;, serás redirigido a la
-            plataforma segura de Transbank.
-          </p>
-        </form>
+          {paymentMethod === "transferencia" && (
+            <div className="mt-6">
+              {!isBuyerDataComplete ? (
+                <div className="p-4 bg-[var(--destructive-muted)] border border-[var(--destructive)]/20 rounded-xl text-[var(--destructive)] text-sm">
+                  Completa todos los datos del comprador para registrar la orden
+                  por transferencia bancaria.
+                </div>
+              ) : (
+                <PagoTransferencia
+                  carrito={carritoPagoTransferencia}
+                  comprador={compradorPagoTransferencia}
+                />
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="lg:pl-4">
@@ -417,6 +555,7 @@ export function CheckoutForm() {
                     />
                   )}
                 </div>
+
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-[var(--foreground)] line-clamp-1">
                     {item.name}
@@ -425,6 +564,7 @@ export function CheckoutForm() {
                     Cantidad: {item.quantity}
                   </p>
                 </div>
+
                 <div className="text-sm font-semibold text-[var(--foreground)]">
                   {formatPrice(item.price * item.quantity)}
                 </div>
@@ -435,18 +575,20 @@ export function CheckoutForm() {
           <div className="border-t border-[var(--border)] pt-4 space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-[var(--muted-foreground)]">Subtotal</span>
-              <span className="font-medium">{formatPrice(total())}</span>
+              <span className="font-medium">{formatPrice(amount)}</span>
             </div>
+
             <div className="flex justify-between text-sm">
               <span className="text-[var(--muted-foreground)]">Envío</span>
               <span className="font-medium">Por confirmar</span>
             </div>
+
             <div className="flex justify-between pt-3 border-t border-[var(--border)]">
               <span className="font-semibold text-[var(--foreground)]">
                 Total
               </span>
               <span className="text-xl font-bold text-[var(--foreground)]">
-                {formatPrice(total())}
+                {formatPrice(amount)}
               </span>
             </div>
           </div>
@@ -467,7 +609,10 @@ export function CheckoutForm() {
                   d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"
                 />
               </svg>
-              <span>Pago 100% seguro mediante Transbank Webpay Plus</span>
+              <span>
+                Compra protegida con opciones de pago seguras: Webpay o
+                transferencia bancaria.
+              </span>
             </div>
           </div>
         </div>
