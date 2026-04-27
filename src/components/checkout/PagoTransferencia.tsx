@@ -204,17 +204,24 @@ function guardarPedidoTransferencia(params: {
     }),
   );
 
-  const historialRaw = localStorage.getItem("ofertando_pedidos_transferencia");
-  const historial = historialRaw ? JSON.parse(historialRaw) : [];
+  try {
+    const historialRaw = localStorage.getItem("ofertando_pedidos_transferencia");
+    const historial = historialRaw ? JSON.parse(historialRaw) : [];
 
-  const nuevoHistorial = Array.isArray(historial)
-    ? [pedidoGuardado, ...historial].slice(0, 10)
-    : [pedidoGuardado];
+    const nuevoHistorial = Array.isArray(historial)
+      ? [pedidoGuardado, ...historial].slice(0, 10)
+      : [pedidoGuardado];
 
-  localStorage.setItem(
-    "ofertando_pedidos_transferencia",
-    JSON.stringify(nuevoHistorial),
-  );
+    localStorage.setItem(
+      "ofertando_pedidos_transferencia",
+      JSON.stringify(nuevoHistorial),
+    );
+  } catch {
+    localStorage.setItem(
+      "ofertando_pedidos_transferencia",
+      JSON.stringify([pedidoGuardado]),
+    );
+  }
 
   window.dispatchEvent(
     new CustomEvent("ofertando:pedido-transferencia-creado", {
@@ -295,7 +302,7 @@ export default function PagoTransferencia({
       const message =
         err instanceof Error
           ? err.message
-          : "Error al confirmar pago por transferencia.";
+          : "Error al confirmar pedido por transferencia.";
 
       setError(message);
     } finally {
@@ -315,12 +322,30 @@ export default function PagoTransferencia({
           transferencia.
         </p>
 
-        <p className="mt-2 text-gray-700">
-          Si no puedes realizar la transferencia en este momento, no te
-          preocupes. Cuando la hagas, usa el botón verde{" "}
-          <strong>“¿Te ayudamos?”</strong> para enviarnos el comprobante por
-          WhatsApp indicando tu número de pedido.
-        </p>
+        <div className="mt-5 rounded-lg bg-blue-50 p-4 border border-blue-200">
+          <p className="text-sm text-blue-900">
+            Hemos dejado preparado el botón verde de WhatsApp con todos los datos
+            de tu pedido: número de pedido, monto, productos comprados, datos del
+            comprador y datos bancarios.
+          </p>
+
+          <p className="mt-2 text-sm text-blue-900">
+            WhatsApp no se envía solo. Debes tocar el botón verde{" "}
+            <strong>“Enviar comprobante”</strong> y luego presionar{" "}
+            <strong>Enviar</strong> dentro de WhatsApp.
+          </p>
+
+          <p className="mt-2 text-sm text-blue-900">
+            Si envías ese WhatsApp, nosotros podremos comenzar a gestionar y
+            preparar tu pedido. Posteriormente, en esa misma conversación, podrás
+            adjuntar el comprobante de depósito o transferencia.
+          </p>
+
+          <p className="mt-2 text-sm text-blue-900">
+            Si no alcanzas a enviarlo en este momento, tendrás una oportunidad
+            más desde el botón verde <strong>“¿Te ayudamos?”</strong>.
+          </p>
+        </div>
 
         <div className="mt-5 rounded-lg bg-gray-50 p-4 border">
           <h3 className="font-semibold mb-3">Datos para transferencia</h3>
@@ -348,10 +373,8 @@ export default function PagoTransferencia({
 
         <div className="mt-5 rounded-lg bg-orange-50 p-4 border border-orange-200">
           <p className="text-sm text-orange-800">
-            Una vez realizada la transferencia, envía el comprobante por
-            WhatsApp indicando tu número de pedido. Si no puedes transferir
-            ahora, puedes hacerlo más tarde y usar el botón{" "}
-            <strong>“¿Te ayudamos?”</strong> para avisarnos.
+            Una vez realizada la transferencia, adjunta el comprobante en la
+            conversación de WhatsApp indicando tu número de pedido.
           </p>
 
           {numeroOrden && (
@@ -367,7 +390,7 @@ export default function PagoTransferencia({
 
         <p className="mt-4 text-xs text-gray-500 text-center">
           En unos segundos se limpiará el carrito. El número de pedido quedará
-          guardado para usarlo desde el botón de WhatsApp.
+          guardado temporalmente para usarlo desde el botón de WhatsApp.
         </p>
       </div>
     );
@@ -378,16 +401,35 @@ export default function PagoTransferencia({
       <h2 className="text-xl font-bold">Pago por transferencia bancaria</h2>
 
       <p className="mt-3 text-gray-700">
-        Al confirmar, tu pedido quedará registrado como pendiente de pago. Luego
-        deberás realizar la transferencia bancaria.
+        Al confirmar, tu pedido quedará registrado como pendiente de pago por
+        transferencia bancaria.
       </p>
 
-      <p className="mt-2 text-gray-700">
-        Si no puedes transferir en este momento, puedes hacerlo más tarde.
-        Cuando tengas el comprobante, usa el botón verde{" "}
-        <strong>“¿Te ayudamos?”</strong> para enviarlo por WhatsApp indicando el
-        número de pedido.
-      </p>
+      <div className="mt-5 rounded-lg bg-blue-50 p-4 border border-blue-200">
+        <p className="text-sm text-blue-900">
+          Al confirmar este pedido, registraremos tu orden y dejaremos preparado
+          un mensaje de WhatsApp con todos los datos del pedido: número de
+          pedido, monto, productos comprados, datos del comprador y datos
+          bancarios.
+        </p>
+
+        <p className="mt-2 text-sm text-blue-900">
+          Importante: WhatsApp no se envía solo. Se abrirá con el mensaje listo y
+          tú solo debes presionar <strong>Enviar</strong>.
+        </p>
+
+        <p className="mt-2 text-sm text-blue-900">
+          Si envías ese WhatsApp, nosotros podremos comenzar a gestionar y
+          preparar tu pedido. Posteriormente, en esa misma conversación, podrás
+          adjuntar el comprobante de depósito o transferencia.
+        </p>
+
+        <p className="mt-2 text-sm text-blue-900">
+          Si no alcanzas a enviar el WhatsApp en ese momento, tendrás una
+          oportunidad más para enviarlo desde el botón verde{" "}
+          <strong>“¿Te ayudamos?”</strong>.
+        </p>
+      </div>
 
       <div className="mt-5 rounded-lg bg-gray-50 p-4 border">
         <h3 className="font-semibold mb-3">Datos para transferencia</h3>
@@ -424,8 +466,8 @@ export default function PagoTransferencia({
         className="mt-5 rounded-lg bg-black px-5 py-3 text-white font-semibold disabled:opacity-50"
       >
         {loading
-          ? "Registrando orden..."
-          : "Confirmar pago por transferencia"}
+          ? "Registrando pedido..."
+          : "Confirmar pedido por transferencia"}
       </button>
     </div>
   );
