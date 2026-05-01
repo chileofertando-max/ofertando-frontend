@@ -13,8 +13,7 @@ async function handleCommit(req: NextRequest, data: RetornoTransbank) {
   const token = data.tokenWs || "";
 
   // Caso sin token_ws: puede ser transacción abortada, anulada o timeout.
-  // En ese caso NO mandamos "rechazado" como token.
-  // Si existe TBK_TOKEN, lo mandamos a la página para validarlo en Transbank.
+  // En este caso NO enviamos "rechazado", "FAILED" ni "token_validacion".
   if (!token) {
     const failUrl = new URL("/checkout/rechazado", req.url);
 
@@ -22,7 +21,6 @@ async function handleCommit(req: NextRequest, data: RetornoTransbank) {
 
     if (data.tbkToken) {
       failUrl.searchParams.set("tbk_token", data.tbkToken);
-      failUrl.searchParams.set("token_validacion", data.tbkToken);
     }
 
     if (data.tbkOrdenCompra) {
@@ -36,7 +34,7 @@ async function handleCommit(req: NextRequest, data: RetornoTransbank) {
     return NextResponse.redirect(failUrl);
   }
 
-  // Guardamos el token real antes del commit.
+  // Guardamos el token real de Transbank antes del commit
   const tokenOriginal = token;
 
   try {
@@ -47,7 +45,7 @@ async function handleCommit(req: NextRequest, data: RetornoTransbank) {
     const buyOrder = response.buy_order || "";
     const amount = String(response.amount ?? "");
 
-    // Pago aprobado.
+    // Pago aprobado
     if (status === "AUTHORIZED" && responseCode === 0) {
       const pendingOrderStr = cookies().get("pending_order")?.value;
 
@@ -162,7 +160,6 @@ async function handleCommit(req: NextRequest, data: RetornoTransbank) {
 
       const successUrl = new URL("/checkout/exito", req.url);
       successUrl.searchParams.set("token_ws", tokenOriginal);
-      successUrl.searchParams.set("token_validacion", tokenOriginal);
       successUrl.searchParams.set("status", status);
       successUrl.searchParams.set("response_code", String(responseCode));
       successUrl.searchParams.set("buyOrder", buyOrder);
@@ -171,10 +168,9 @@ async function handleCommit(req: NextRequest, data: RetornoTransbank) {
       return NextResponse.redirect(successUrl);
     }
 
-    // Pago rechazado, conservando el token original.
+    // Pago rechazado, pero conservando el token real una sola vez
     const failUrl = new URL("/checkout/rechazado", req.url);
     failUrl.searchParams.set("token_ws", tokenOriginal);
-    failUrl.searchParams.set("token_validacion", tokenOriginal);
     failUrl.searchParams.set("status", status || "FAILED");
     failUrl.searchParams.set("response_code", String(responseCode));
     failUrl.searchParams.set("buyOrder", buyOrder);
@@ -186,7 +182,6 @@ async function handleCommit(req: NextRequest, data: RetornoTransbank) {
 
     const failUrl = new URL("/checkout/rechazado", req.url);
     failUrl.searchParams.set("token_ws", tokenOriginal);
-    failUrl.searchParams.set("token_validacion", tokenOriginal);
     failUrl.searchParams.set("motivo", "error_commit");
 
     return NextResponse.redirect(failUrl);
