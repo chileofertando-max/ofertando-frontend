@@ -55,6 +55,7 @@ export async function POST(req: NextRequest) {
     }
 
     const rawItems = items || [];
+
     const safeLineItems = rawItems.map((item: any) => {
       let rawId =
         item.databaseId ||
@@ -62,11 +63,13 @@ export async function POST(req: NextRequest) {
         item.id ||
         item.product_id ||
         item.databaseId;
+
       if (!rawId && item.product?.node) {
         rawId = item.product.node.databaseId;
       }
 
       let pId = Number(rawId);
+
       if (isNaN(pId) && typeof rawId === "string") {
         try {
           pId = Number(atob(rawId).split(":")[1]);
@@ -80,7 +83,10 @@ export async function POST(req: NextRequest) {
         throw new Error("No se pudo extraer el ID numérico del producto.");
       }
 
-      return { product_id: pId, quantity: Number(item.quantity) || 1 };
+      return {
+        product_id: pId,
+        quantity: Number(item.quantity) || 1,
+      };
     });
 
     if (safeLineItems.length === 0) {
@@ -104,7 +110,9 @@ export async function POST(req: NextRequest) {
 
     const buyOrder = `O-${Date.now()}`;
     const sessionId = `S-${Date.now()}`;
-    const returnUrlCommit = `${returnUrl}/api/transbank/commit`;
+
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ofertando.cl";
+    const returnUrlCommit = `${siteUrl.replace(/\/$/, "")}/api/transbank/commit`;
 
     const response = await webpay.create(
       buyOrder,
@@ -120,8 +128,12 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("Transbank create error:", error);
+
     return NextResponse.json(
-      { success: false, error: "Error al iniciar transacción" },
+      {
+        success: false,
+        error: "Error al iniciar transacción",
+      },
       { status: 500 },
     );
   }
