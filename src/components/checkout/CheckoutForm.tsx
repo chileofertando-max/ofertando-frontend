@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useCartStore } from "@/store/cart";
 import { usePixel } from "@/hooks/usePixel";
 import { Button } from "@/components/ui/Button";
@@ -65,12 +65,6 @@ export function CheckoutForm() {
     formData.direccion.trim() !== "" &&
     formData.ciudad.trim() !== "" &&
     formData.region.trim() !== "";
-
-  const isOptionalPasswordValid =
-    !wantsPassword ||
-    (password.trim().length >= 8 && password === confirmPassword);
-
-  const canProceedWithPayment = isBuyerDataComplete && isOptionalPasswordValid;
 
   const carritoPagoTransferencia = items.map((item) => ({
     id: item.id,
@@ -203,7 +197,7 @@ export function CheckoutForm() {
           accountData: {
             wantsPassword,
           },
-        }),
+        })
       );
 
       const form = document.createElement("form");
@@ -258,17 +252,31 @@ export function CheckoutForm() {
 
           {status === "authenticated" && session?.user ? (
             <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 p-4">
-              <p className="text-sm font-semibold text-green-800">
-                Sesión iniciada
-              </p>
-              <p className="mt-1 text-sm text-green-700">
-                Estás comprando como{" "}
-                <strong>{session.user.email || session.user.name}</strong>.
-              </p>
-              <p className="mt-1 text-xs text-green-700">
-                Si tienes datos guardados, los cargaremos automáticamente en el
-                formulario.
-              </p>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-green-800">
+                    Sesión iniciada
+                  </p>
+
+                  <p className="mt-1 text-sm text-green-700">
+                    Estás comprando como{" "}
+                    <strong>{session.user.email || session.user.name}</strong>.
+                  </p>
+
+                  <p className="mt-1 text-xs text-green-700">
+                    Si tienes datos guardados, los cargaremos automáticamente en
+                    el formulario.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => signOut({ callbackUrl: "/checkout" })}
+                  className="inline-flex items-center justify-center rounded-xl border border-green-300 bg-white px-4 py-2 text-sm font-semibold text-green-800 transition-colors hover:bg-green-100"
+                >
+                  Cerrar sesión
+                </button>
+              </div>
             </div>
           ) : (
             <div className="mb-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-5">
@@ -284,9 +292,7 @@ export function CheckoutForm() {
                 </div>
 
                 <Link href="/login?redirect=/checkout">
-                  <Button type="button" variant="secondary">
-                    Inicia sesión
-                  </Button>
+                  <Button type="button">Inicia sesión</Button>
                 </Link>
               </div>
 
