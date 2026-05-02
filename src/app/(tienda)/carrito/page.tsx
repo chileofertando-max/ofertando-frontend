@@ -125,7 +125,7 @@ export default function CarritoPage() {
                 </div>
               </div>
               <Link href="/checkout" className="block">
-                <Button size="lg" className="w-full">Ir al Checkout</Button>
+                <Button size="lg" className="w-full">Ir a pagar</Button>
               </Link>
               <Link href="/catalogo" className="block mt-3">
                 <Button variant="ghost" size="lg" className="w-full">Continuar Comprando</Button>
