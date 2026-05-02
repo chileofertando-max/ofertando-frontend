@@ -27,6 +27,11 @@ type Comprador = {
   direccion?: string;
   ciudad?: string;
   region?: string;
+
+  subtotal?: number;
+  envio?: number;
+  descuento?: number;
+  cupon?: string;
   total?: number;
 };
 
@@ -73,6 +78,29 @@ function getTotalCarrito(carrito: ProductoCarrito[]) {
   }, 0);
 }
 
+function getResumenMontos(carrito: ProductoCarrito[], comprador: Comprador) {
+  const subtotalCarrito = getTotalCarrito(carrito);
+
+  const subtotal = Number(comprador.subtotal ?? subtotalCarrito);
+  const envio = Number(comprador.envio ?? 0);
+  const descuento = Number(comprador.descuento ?? 0);
+
+  const totalDesdeComprador = Number(comprador.total ?? 0);
+
+  const total =
+    totalDesdeComprador > 0
+      ? totalDesdeComprador
+      : Math.max(0, subtotal + envio - descuento);
+
+  return {
+    subtotal,
+    envio,
+    descuento,
+    cupon: comprador.cupon || "",
+    total,
+  };
+}
+
 function getNombreProducto(item: ProductoCarrito) {
   return item.nombre || item.name || "Producto";
 }
@@ -108,6 +136,31 @@ function generarResumenProductos(carrito: ProductoCarrito[]) {
     .join("\n");
 }
 
+function generarResumenTotales(params: {
+  subtotal: number;
+  envio: number;
+  descuento: number;
+  cupon?: string;
+  total: number;
+}) {
+  const { subtotal, envio, descuento, cupon, total } = params;
+
+  const lineas = [
+    `Subtotal productos: ${formatPrice(subtotal)}`,
+    `Envío: ${envio > 0 ? formatPrice(envio) : "Gratis"}`,
+  ];
+
+  if (descuento > 0) {
+    lineas.push(
+      `Descuento${cupon ? ` ${cupon}` : ""}: -${formatPrice(descuento)}`
+    );
+  }
+
+  lineas.push(`Total final a transferir: ${formatPrice(total)}`);
+
+  return lineas.join("\n");
+}
+
 function generarMensajeWhatsapp(params: {
   numeroOrden: string;
   total: number;
@@ -118,6 +171,16 @@ function generarMensajeWhatsapp(params: {
 
   const nombreComprador = getNombreComprador(comprador);
   const productos = generarResumenProductos(carrito);
+
+  const resumenMontos = {
+    subtotal: Number(comprador.subtotal ?? getTotalCarrito(carrito)),
+    envio: Number(comprador.envio ?? 0),
+    descuento: Number(comprador.descuento ?? 0),
+    cupon: comprador.cupon || "",
+    total,
+  };
+
+  const totales = generarResumenTotales(resumenMontos);
 
   return `Hola Ofertando.cl, realicé una compra por transferencia bancaria.
 
@@ -135,13 +198,16 @@ Correo: ${DATOS_BANCARIOS.correo}
 Productos comprados:
 ${productos}
 
+Resumen de pago:
+${totales}
+
 Datos del comprador:
 Nombre: ${nombreComprador || "No informado"}
 RUT: ${comprador.rut || "No informado"}
 Correo: ${comprador.email || comprador.correo || "No informado"}
 Teléfono: ${comprador.telefono || "No informado"}
 Dirección: ${comprador.direccion || "No informada"}
-Ciudad: ${comprador.ciudad || "No informada"}
+Comuna: ${comprador.ciudad || "No informada"}
 Región: ${comprador.region || "No informada"}
 
 Adjunto comprobante de transferencia.`;
@@ -156,8 +222,10 @@ function guardarPedidoTransferencia(params: {
   const { orden, carrito, comprador, total } = params;
 
   const numeroOrden = String(
-    orden.numero_orden || orden.orden_id || orden.order_id || "",
+    orden.numero_orden || orden.orden_id || orden.order_id || ""
   );
+
+  const resumenMontos = getResumenMontos(carrito, comprador);
 
   const mensajeWhatsapp = generarMensajeWhatsapp({
     numeroOrden,
@@ -173,6 +241,14 @@ function guardarPedidoTransferencia(params: {
     orden,
     total,
     totalFormateado: formatPrice(total),
+    subtotal: resumenMontos.subtotal,
+    subtotalFormateado: formatPrice(resumenMontos.subtotal),
+    envio: resumenMontos.envio,
+    envioFormateado:
+      resumenMontos.envio > 0 ? formatPrice(resumenMontos.envio) : "Gratis",
+    descuento: resumenMontos.descuento,
+    descuentoFormateado: formatPrice(resumenMontos.descuento),
+    cupon: resumenMontos.cupon,
     comprador,
     productos: carrito,
     datosBancarios: DATOS_BANCARIOS,
@@ -181,14 +257,14 @@ function guardarPedidoTransferencia(params: {
       numeroVisible: DATOS_BANCARIOS.whatsappVisible,
       mensaje: mensajeWhatsapp,
       url: `https://wa.me/${DATOS_BANCARIOS.whatsappLink}?text=${encodeURIComponent(
-        mensajeWhatsapp,
+        mensajeWhatsapp
       )}`,
     },
   };
 
   localStorage.setItem(
     "ofertando_ultimo_pedido_transferencia",
-    JSON.stringify(pedidoGuardado),
+    JSON.stringify(pedidoGuardado)
   );
 
   localStorage.setItem(
@@ -201,7 +277,7 @@ function guardarPedidoTransferencia(params: {
       numeroOrden,
       total,
       fecha: pedidoGuardado.fecha,
-    }),
+    })
   );
 
   try {
@@ -214,19 +290,19 @@ function guardarPedidoTransferencia(params: {
 
     localStorage.setItem(
       "ofertando_pedidos_transferencia",
-      JSON.stringify(nuevoHistorial),
+      JSON.stringify(nuevoHistorial)
     );
   } catch {
     localStorage.setItem(
       "ofertando_pedidos_transferencia",
-      JSON.stringify([pedidoGuardado]),
+      JSON.stringify([pedidoGuardado])
     );
   }
 
   window.dispatchEvent(
     new CustomEvent("ofertando:pedido-transferencia-creado", {
       detail: pedidoGuardado,
-    }),
+    })
   );
 
   return pedidoGuardado;
@@ -242,12 +318,18 @@ export default function PagoTransferencia({
 
   const { clearCart } = useCartStore();
 
-  const total = getTotalCarrito(carrito);
+  const resumenMontos = getResumenMontos(carrito, comprador);
+
+  const subtotal = resumenMontos.subtotal;
+  const envio = resumenMontos.envio;
+  const descuento = resumenMontos.descuento;
+  const cupon = resumenMontos.cupon;
+  const total = resumenMontos.total;
 
   const numeroOrden =
     ordenCreada?.numero_orden || ordenCreada?.orden_id || ordenCreada?.order_id;
 
-  const totalOrden = Number(ordenCreada?.total || total || comprador.total || 0);
+  const totalOrden = Number(ordenCreada?.total || total || 0);
 
   async function confirmarTransferencia() {
     try {
@@ -261,6 +343,10 @@ export default function PagoTransferencia({
       const payload = {
         comprador,
         productos: carrito,
+        subtotal,
+        envio,
+        descuento,
+        cupon,
         total,
         metodo_pago: "transferencia",
         estado_pago: "pendiente",
@@ -280,7 +366,7 @@ export default function PagoTransferencia({
         throw new Error(
           data?.message ||
             data?.error?.message ||
-            "No se pudo registrar la orden por transferencia.",
+            "No se pudo registrar la orden por transferencia."
         );
       }
 
@@ -363,8 +449,7 @@ export default function PagoTransferencia({
             <strong>Tipo de cuenta:</strong> {DATOS_BANCARIOS.tipoCuenta}
           </p>
           <p>
-            <strong>Número de cuenta:</strong>{" "}
-            {DATOS_BANCARIOS.numeroCuenta}
+            <strong>Número de cuenta:</strong> {DATOS_BANCARIOS.numeroCuenta}
           </p>
           <p>
             <strong>Correo:</strong> {DATOS_BANCARIOS.correo}
@@ -383,9 +468,26 @@ export default function PagoTransferencia({
             </p>
           )}
 
-          <p className="mt-2 font-semibold text-orange-900">
-            Total a transferir: {formatPrice(totalOrden)}
-          </p>
+          <div className="mt-3 space-y-1 text-sm text-orange-900">
+            <p>
+              <strong>Subtotal:</strong> {formatPrice(subtotal)}
+            </p>
+            <p>
+              <strong>Envío:</strong>{" "}
+              {envio > 0 ? formatPrice(envio) : "Gratis"}
+            </p>
+
+            {descuento > 0 && (
+              <p>
+                <strong>Descuento{cupon ? ` ${cupon}` : ""}:</strong> -
+                {formatPrice(descuento)}
+              </p>
+            )}
+
+            <p className="pt-1 text-base font-semibold">
+              Total a transferir: {formatPrice(totalOrden)}
+            </p>
+          </div>
         </div>
 
         <p className="mt-4 text-xs text-gray-500 text-center">
@@ -452,6 +554,32 @@ export default function PagoTransferencia({
         <p>
           <strong>Correo:</strong> {DATOS_BANCARIOS.correo}
         </p>
+      </div>
+
+      <div className="mt-5 rounded-lg bg-orange-50 p-4 border border-orange-200">
+        <h3 className="font-semibold mb-3 text-orange-900">
+          Resumen a transferir
+        </h3>
+
+        <div className="space-y-1 text-sm text-orange-900">
+          <p>
+            <strong>Subtotal:</strong> {formatPrice(subtotal)}
+          </p>
+          <p>
+            <strong>Envío:</strong> {envio > 0 ? formatPrice(envio) : "Gratis"}
+          </p>
+
+          {descuento > 0 && (
+            <p>
+              <strong>Descuento{cupon ? ` ${cupon}` : ""}:</strong> -
+              {formatPrice(descuento)}
+            </p>
+          )}
+
+          <p className="pt-1 text-base font-semibold">
+            Total a transferir: {formatPrice(total)}
+          </p>
+        </div>
       </div>
 
       {error && (
