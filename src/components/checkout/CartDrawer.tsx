@@ -163,7 +163,7 @@ export function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
               </div>
               <Link href="/checkout" onClick={onClose} className="block">
                 <Button size="lg" className="w-full">
-                  Ir al checkout
+                  Ir a pagar
                 </Button>
               </Link>
               <Button variant="ghost" onClick={onClose} className="w-full">
