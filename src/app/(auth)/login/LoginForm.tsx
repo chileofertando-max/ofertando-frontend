@@ -62,9 +62,11 @@ export default function LoginForm() {
               />
             </svg>
           </div>
+
           <h1 className="text-heading-lg text-[var(--foreground)] mb-2">
             Iniciar Sesión
           </h1>
+
           <p className="text-sm text-[var(--muted-foreground)]">
             Ingresa tus datos para acceder a tu cuenta
           </p>
@@ -84,6 +86,7 @@ export default function LoginForm() {
             >
               Email
             </label>
+
             <Input
               type="email"
               id="email"
@@ -101,6 +104,7 @@ export default function LoginForm() {
             >
               Contraseña
             </label>
+
             <Input
               type="password"
               id="password"
@@ -109,6 +113,15 @@ export default function LoginForm() {
               required
               placeholder="••••••••"
             />
+
+            <div className="mt-3 text-right">
+              <Link
+                href="/recuperar-contrasena"
+                className="text-sm font-medium text-[var(--accent)] hover:text-[var(--accent-hover)] hover:underline transition-colors"
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
           </div>
 
           <Button
