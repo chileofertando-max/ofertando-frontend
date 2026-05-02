@@ -517,7 +517,7 @@ export function CheckoutForm() {
                     </span>
                     <span className="block mt-1 text-sm text-[var(--muted-foreground)]">
                       Es opcional. Puedes comprar sin contraseña y crearla más
-                      adelante desde “Olvidaste tu contraseña”.
+                      adelante desde “ MI Cuenta”.
                     </span>
                   </span>
                 </label>
