@@ -122,6 +122,29 @@ export function CheckoutForm() {
     }
   }, [session?.user?.email, status]);
 
+  const clearBuyerData = () => {
+    setFormData({
+      nombre: "",
+      apellido: "",
+      email: "",
+      telefono: "",
+      rut: "",
+      direccion: "",
+      ciudad: "",
+      region: "",
+    });
+
+    setWantsPassword(false);
+    setPassword("");
+    setConfirmPassword("");
+    setError("");
+  };
+
+  const handleLogout = async () => {
+    await signOut({ redirect: false });
+    clearBuyerData();
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -271,7 +294,7 @@ export function CheckoutForm() {
 
                 <button
                   type="button"
-                  onClick={() => signOut({ callbackUrl: "/checkout" })}
+                  onClick={handleLogout}
                   className="inline-flex items-center justify-center rounded-xl border border-green-300 bg-white px-4 py-2 text-sm font-semibold text-green-800 transition-colors hover:bg-green-100"
                 >
                   Cerrar sesión
