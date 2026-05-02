@@ -8,7 +8,11 @@ import { useCartStore } from "@/store/cart";
 import { usePixel } from "@/hooks/usePixel";
 import { Button } from "@/components/ui/Button";
 import PagoTransferencia from "./PagoTransferencia";
-import { COMUNAS_CHILE, getRegionByComuna } from "@/data/chile-regiones-comunas";
+import {
+  COMUNAS_CHILE,
+  getRegionByComuna,
+  isRegionMetropolitana,
+} from "@/data/chile-regiones-comunas";
 
 interface CheckoutFormData {
   nombre: string;
@@ -29,6 +33,20 @@ function formatPrice(price: number) {
     currency: "CLP",
     minimumFractionDigits: 0,
   }).format(price);
+}
+
+function calculateShippingCost(subtotal: number, region: string) {
+  if (!region) return null;
+
+  if (subtotal >= 50000) {
+    return 0;
+  }
+
+  if (isRegionMetropolitana(region)) {
+    return 7500;
+  }
+
+  return 10000;
 }
 
 export function CheckoutForm() {
@@ -55,7 +73,16 @@ export function CheckoutForm() {
   const { items, total } = useCartStore();
   const { trackInitiateCheckout } = usePixel();
 
-  const amount = total();
+  const subtotal = total();
+  const shippingCost = calculateShippingCost(subtotal, formData.region);
+  const finalAmount = subtotal + (shippingCost ?? 0);
+
+  const shippingLabel =
+    shippingCost === null
+      ? "Por confirmar"
+      : shippingCost === 0
+        ? "Gratis"
+        : formatPrice(shippingCost);
 
   const isBuyerDataComplete =
     formData.nombre.trim() !== "" &&
@@ -91,7 +118,9 @@ export function CheckoutForm() {
     direccion: formData.direccion,
     ciudad: formData.ciudad,
     region: formData.region,
-    total: amount,
+    subtotal,
+    envio: shippingCost ?? 0,
+    total: finalAmount,
   };
 
   useEffect(() => {
@@ -119,9 +148,7 @@ export function CheckoutForm() {
               direccion: data.shippingData.direccion || prev.direccion,
               ciudad: comunaGuardada || prev.ciudad,
               region:
-                regionAutomatica ||
-                data.shippingData.region ||
-                prev.region,
+                regionAutomatica || data.shippingData.region || prev.region,
             }));
           }
         })
@@ -191,6 +218,11 @@ export function CheckoutForm() {
       return;
     }
 
+    if (shippingCost === null) {
+      setError("Selecciona una comuna para calcular el envío");
+      return;
+    }
+
     if (wantsPassword && password.trim().length < 8) {
       setError("La contraseña debe tener al menos 8 caracteres");
       return;
@@ -206,17 +238,29 @@ export function CheckoutForm() {
     setIsLoading(true);
 
     try {
-      trackInitiateCheckout(amount);
+      trackInitiateCheckout(finalAmount);
 
       const response = await fetch("/api/transbank/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount,
+          amount: finalAmount,
           orderId,
           returnUrl: window.location.origin,
           items,
           formData,
+          shipping: {
+            region: formData.region,
+            comuna: formData.ciudad,
+            cost: shippingCost,
+            label: shippingLabel,
+          },
+          totals: {
+            subtotal,
+            shipping: shippingCost,
+            discount: 0,
+            finalAmount,
+          },
           accountData: {
             wantsPassword,
           },
@@ -234,7 +278,19 @@ export function CheckoutForm() {
         JSON.stringify({
           orderId,
           formData,
-          amount,
+          amount: finalAmount,
+          shipping: {
+            region: formData.region,
+            comuna: formData.ciudad,
+            cost: shippingCost,
+            label: shippingLabel,
+          },
+          totals: {
+            subtotal,
+            shipping: shippingCost,
+            discount: 0,
+            finalAmount,
+          },
           accountData: {
             wantsPassword,
           },
@@ -520,6 +576,42 @@ export function CheckoutForm() {
               </div>
             </div>
 
+            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-5">
+              <h3 className="text-sm font-semibold text-[var(--foreground)] mb-3">
+                Datos de despacho
+              </h3>
+
+              <div className="space-y-2 text-sm text-[var(--muted-foreground)]">
+                <p>
+                  <strong className="text-[var(--foreground)]">
+                    Región Metropolitana:
+                  </strong>{" "}
+                  envío $7.500. Gratis desde $50.000.
+                </p>
+                <p>
+                  <strong className="text-[var(--foreground)]">
+                    Otras regiones:
+                  </strong>{" "}
+                  envío $10.000. Gratis desde $50.000.
+                </p>
+              </div>
+
+              {formData.region && (
+                <div className="mt-4 rounded-xl bg-[var(--surface)] border border-[var(--border-subtle)] px-4 py-3 text-sm">
+                  <span className="text-[var(--muted-foreground)]">
+                    Envío calculado para{" "}
+                  </span>
+                  <strong className="text-[var(--foreground)]">
+                    {formData.ciudad}, {formData.region}
+                  </strong>
+                  <span className="text-[var(--muted-foreground)]">: </span>
+                  <strong className="text-[var(--accent)]">
+                    {shippingLabel}
+                  </strong>
+                </div>
+              )}
+            </div>
+
             {status !== "authenticated" && (
               <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-5">
                 <label className="flex items-start gap-3 cursor-pointer">
@@ -721,6 +813,10 @@ export function CheckoutForm() {
                   Completa todos los datos del comprador para registrar la orden
                   por transferencia bancaria.
                 </div>
+              ) : shippingCost === null ? (
+                <div className="p-4 bg-[var(--destructive-muted)] border border-[var(--destructive)]/20 rounded-xl text-[var(--destructive)] text-sm">
+                  Selecciona una comuna para calcular el envío.
+                </div>
               ) : wantsPassword && password.trim().length < 8 ? (
                 <div className="p-4 bg-[var(--destructive-muted)] border border-[var(--destructive)]/20 rounded-xl text-[var(--destructive)] text-sm">
                   La contraseña debe tener al menos 8 caracteres.
@@ -780,20 +876,20 @@ export function CheckoutForm() {
           <div className="border-t border-[var(--border)] pt-4 space-y-3">
             <div className="flex justify-between text-sm">
               <span className="text-[var(--muted-foreground)]">Subtotal</span>
-              <span className="font-medium">{formatPrice(amount)}</span>
+              <span className="font-medium">{formatPrice(subtotal)}</span>
             </div>
 
             <div className="flex justify-between text-sm">
               <span className="text-[var(--muted-foreground)]">Envío</span>
-              <span className="font-medium">Por confirmar</span>
+              <span className="font-medium">{shippingLabel}</span>
             </div>
 
             <div className="flex justify-between pt-3 border-t border-[var(--border)]">
               <span className="font-semibold text-[var(--foreground)]">
-                Total
+                Total final
               </span>
               <span className="text-xl font-bold text-[var(--foreground)]">
-                {formatPrice(amount)}
+                {formatPrice(finalAmount)}
               </span>
             </div>
           </div>
