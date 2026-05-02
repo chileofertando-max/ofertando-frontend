@@ -84,7 +84,6 @@ function getResumenMontos(carrito: ProductoCarrito[], comprador: Comprador) {
   const subtotal = Number(comprador.subtotal ?? subtotalCarrito);
   const envio = Number(comprador.envio ?? 0);
   const descuento = Number(comprador.descuento ?? 0);
-
   const totalDesdeComprador = Number(comprador.total ?? 0);
 
   const total =
@@ -315,6 +314,7 @@ export default function PagoTransferencia({
   const [loading, setLoading] = useState(false);
   const [ordenCreada, setOrdenCreada] = useState<OrdenCreada | null>(null);
   const [error, setError] = useState("");
+  const [totalConfirmado, setTotalConfirmado] = useState<number | null>(null);
 
   const { clearCart } = useCartStore();
 
@@ -329,7 +329,12 @@ export default function PagoTransferencia({
   const numeroOrden =
     ordenCreada?.numero_orden || ordenCreada?.orden_id || ordenCreada?.order_id;
 
-  const totalOrden = Number(ordenCreada?.total || total || 0);
+  /*
+   * Importante:
+   * No usamos ordenCreada.total porque WordPress/API puede devolver solo subtotal.
+   * Usamos el total final calculado en checkout: subtotal + envío - descuento.
+   */
+  const totalOrden = totalConfirmado ?? total;
 
   async function confirmarTransferencia() {
     try {
@@ -340,6 +345,8 @@ export default function PagoTransferencia({
         throw new Error("Tu carrito está vacío.");
       }
 
+      const totalFinalTransferencia = total;
+
       const payload = {
         comprador,
         productos: carrito,
@@ -347,7 +354,7 @@ export default function PagoTransferencia({
         envio,
         descuento,
         cupon,
-        total,
+        total: totalFinalTransferencia,
         metodo_pago: "transferencia",
         estado_pago: "pendiente",
       };
@@ -373,12 +380,13 @@ export default function PagoTransferencia({
       const orden: OrdenCreada = data.data || data;
 
       setOrdenCreada(orden);
+      setTotalConfirmado(totalFinalTransferencia);
 
       guardarPedidoTransferencia({
         orden,
         carrito,
         comprador,
-        total: Number(orden.total || total),
+        total: totalFinalTransferencia,
       });
 
       setTimeout(() => {
@@ -472,6 +480,7 @@ export default function PagoTransferencia({
             <p>
               <strong>Subtotal:</strong> {formatPrice(subtotal)}
             </p>
+
             <p>
               <strong>Envío:</strong>{" "}
               {envio > 0 ? formatPrice(envio) : "Gratis"}
@@ -565,6 +574,7 @@ export default function PagoTransferencia({
           <p>
             <strong>Subtotal:</strong> {formatPrice(subtotal)}
           </p>
+
           <p>
             <strong>Envío:</strong> {envio > 0 ? formatPrice(envio) : "Gratis"}
           </p>
