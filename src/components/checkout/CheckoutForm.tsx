@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { useSession } from "next-auth/react";
 import { useCartStore } from "@/store/cart";
@@ -34,6 +35,10 @@ export function CheckoutForm() {
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("webpay");
 
+  const [wantsPassword, setWantsPassword] = useState(false);
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+
   const [formData, setFormData] = useState<CheckoutFormData>({
     nombre: "",
     apellido: "",
@@ -60,6 +65,12 @@ export function CheckoutForm() {
     formData.direccion.trim() !== "" &&
     formData.ciudad.trim() !== "" &&
     formData.region.trim() !== "";
+
+  const isOptionalPasswordValid =
+    !wantsPassword ||
+    (password.trim().length >= 8 && password === confirmPassword);
+
+  const canProceedWithPayment = isBuyerDataComplete && isOptionalPasswordValid;
 
   const carritoPagoTransferencia = items.map((item) => ({
     id: item.id,
@@ -106,6 +117,7 @@ export function CheckoutForm() {
               apellido: data.shippingData.lastName || prev.apellido,
               email: data.shippingData.email || prev.email,
               telefono: data.shippingData.telefono || prev.telefono,
+              rut: data.shippingData.rut || prev.rut,
               direccion: data.shippingData.direccion || prev.direccion,
               ciudad: data.shippingData.ciudad || prev.ciudad,
               region: data.shippingData.region || prev.region,
@@ -144,6 +156,16 @@ export function CheckoutForm() {
       return;
     }
 
+    if (wantsPassword && password.trim().length < 8) {
+      setError("La contraseña debe tener al menos 8 caracteres");
+      return;
+    }
+
+    if (wantsPassword && password !== confirmPassword) {
+      setError("Las contraseñas no coinciden");
+      return;
+    }
+
     const orderId = `ORD-${Date.now()}`;
 
     setIsLoading(true);
@@ -160,6 +182,9 @@ export function CheckoutForm() {
           returnUrl: window.location.origin,
           items,
           formData,
+          accountData: {
+            wantsPassword,
+          },
         }),
       });
 
@@ -175,6 +200,9 @@ export function CheckoutForm() {
           orderId,
           formData,
           amount,
+          accountData: {
+            wantsPassword,
+          },
         }),
       );
 
@@ -227,6 +255,50 @@ export function CheckoutForm() {
           <h2 className="text-heading-lg text-[var(--foreground)] mb-6">
             Datos del comprador
           </h2>
+
+          {status === "authenticated" && session?.user ? (
+            <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 p-4">
+              <p className="text-sm font-semibold text-green-800">
+                Sesión iniciada
+              </p>
+              <p className="mt-1 text-sm text-green-700">
+                Estás comprando como{" "}
+                <strong>{session.user.email || session.user.name}</strong>.
+              </p>
+              <p className="mt-1 text-xs text-green-700">
+                Si tienes datos guardados, los cargaremos automáticamente en el
+                formulario.
+              </p>
+            </div>
+          ) : (
+            <div className="mb-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-5">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <p className="text-sm font-semibold text-[var(--foreground)]">
+                    ¿Ya tienes cuenta?
+                  </p>
+                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                    Inicia sesión para cargar tus datos y revisar tus pedidos
+                    después de la compra.
+                  </p>
+                </div>
+
+                <Link href="/login?redirect=/checkout">
+                  <Button type="button" variant="secondary">
+                    Inicia sesión
+                  </Button>
+                </Link>
+              </div>
+
+              <div className="mt-5 flex items-center gap-3">
+                <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+                <span className="text-xs text-[var(--muted-foreground)]">
+                  o continúa como cliente nuevo
+                </span>
+                <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="mb-6 p-4 bg-[var(--destructive-muted)] border border-[var(--destructive)]/20 rounded-xl text-[var(--destructive)] text-sm">
@@ -359,7 +431,7 @@ export function CheckoutForm() {
                   htmlFor="ciudad"
                   className="block text-sm font-medium text-[var(--foreground)] mb-2"
                 >
-                  Ciudad
+                  Comuna
                 </label>
                 <input
                   type="text"
@@ -392,6 +464,76 @@ export function CheckoutForm() {
                 />
               </div>
             </div>
+
+            {status !== "authenticated" && (
+              <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-5">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={wantsPassword}
+                    onChange={(e) => {
+                      setWantsPassword(e.target.checked);
+                      setError("");
+
+                      if (!e.target.checked) {
+                        setPassword("");
+                        setConfirmPassword("");
+                      }
+                    }}
+                    className="mt-1"
+                  />
+                  <span>
+                    <span className="block text-sm font-semibold text-[var(--foreground)]">
+                      ¿Quieres agregar contraseña para revisar tus pedidos?
+                    </span>
+                    <span className="block mt-1 text-sm text-[var(--muted-foreground)]">
+                      Es opcional. Puedes comprar sin contraseña y crearla más
+                      adelante desde “Olvidaste tu contraseña”.
+                    </span>
+                  </span>
+                </label>
+
+                {wantsPassword && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+                    <div>
+                      <label
+                        htmlFor="password"
+                        className="block text-sm font-medium text-[var(--foreground)] mb-2"
+                      >
+                        Contraseña
+                      </label>
+                      <input
+                        type="password"
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="input"
+                        placeholder="Mínimo 8 caracteres"
+                        required={wantsPassword}
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="confirmPassword"
+                        className="block text-sm font-medium text-[var(--foreground)] mb-2"
+                      >
+                        Confirmar contraseña
+                      </label>
+                      <input
+                        type="password"
+                        id="confirmPassword"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="input"
+                        placeholder="Repite tu contraseña"
+                        required={wantsPassword}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="pt-4">
               <h3 className="text-base font-semibold text-[var(--foreground)] mb-3">
@@ -523,6 +665,14 @@ export function CheckoutForm() {
                 <div className="p-4 bg-[var(--destructive-muted)] border border-[var(--destructive)]/20 rounded-xl text-[var(--destructive)] text-sm">
                   Completa todos los datos del comprador para registrar la orden
                   por transferencia bancaria.
+                </div>
+              ) : wantsPassword && password.trim().length < 8 ? (
+                <div className="p-4 bg-[var(--destructive-muted)] border border-[var(--destructive)]/20 rounded-xl text-[var(--destructive)] text-sm">
+                  La contraseña debe tener al menos 8 caracteres.
+                </div>
+              ) : wantsPassword && password !== confirmPassword ? (
+                <div className="p-4 bg-[var(--destructive-muted)] border border-[var(--destructive)]/20 rounded-xl text-[var(--destructive)] text-sm">
+                  Las contraseñas no coinciden.
                 </div>
               ) : (
                 <PagoTransferencia
