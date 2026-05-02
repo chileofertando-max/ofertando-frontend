@@ -10,7 +10,15 @@ import { Input } from "@/components/ui/Input";
 export default function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/";
+
+  const redirectParam = searchParams.get("redirect");
+
+  const redirect =
+    redirectParam &&
+    redirectParam.startsWith("/") &&
+    !redirectParam.startsWith("//")
+      ? redirectParam
+      : "/";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
