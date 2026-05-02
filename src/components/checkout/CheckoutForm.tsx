@@ -119,7 +119,6 @@ export function CheckoutForm() {
   const [appliedCoupon, setAppliedCoupon] =
     useState<CouponDefinition | null>(null);
   const [couponError, setCouponError] = useState("");
-  const [couponMessage, setCouponMessage] = useState("");
 
   const [formData, setFormData] = useState<CheckoutFormData>({
     nombre: "",
@@ -143,7 +142,10 @@ export function CheckoutForm() {
     subtotal,
     shippingCost
   );
-  const finalAmount = Math.max(0, subtotal + (shippingCost ?? 0) - discountAmount);
+  const finalAmount = Math.max(
+    0,
+    subtotal + (shippingCost ?? 0) - discountAmount
+  );
 
   const shippingLabel =
     shippingCost === null
@@ -263,11 +265,6 @@ export function CheckoutForm() {
       ciudad: comuna,
       region,
     }));
-
-    if (appliedCoupon?.type === "shipping_free") {
-      setCouponMessage("");
-      setCouponError("");
-    }
   };
 
   const handlePaymentMethodChange = (method: PaymentMethod) => {
@@ -277,7 +274,6 @@ export function CheckoutForm() {
 
   const handleApplyCoupon = () => {
     setCouponError("");
-    setCouponMessage("");
 
     const normalizedCode = couponInput.trim().toUpperCase();
 
@@ -313,14 +309,12 @@ export function CheckoutForm() {
 
     setAppliedCoupon(coupon);
     setCouponInput(normalizedCode);
-    setCouponMessage(`${coupon.code} aplicado correctamente.`);
   };
 
   const handleRemoveCoupon = () => {
     setAppliedCoupon(null);
     setCouponInput("");
     setCouponError("");
-    setCouponMessage("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -1021,54 +1015,50 @@ export function CheckoutForm() {
               <span className="font-medium">{shippingLabel}</span>
             </div>
 
-            <div className="pt-2">
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={couponInput}
-                  onChange={(e) => {
-                    setCouponInput(e.target.value.toUpperCase());
-                    setCouponError("");
-                    setCouponMessage("");
-                  }}
-                  className="input flex-1 text-sm uppercase"
-                  placeholder="Cod. Desc"
-                />
+            {!appliedCoupon && (
+              <div className="pt-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => {
+                      setCouponInput(e.target.value.toUpperCase());
+                      setCouponError("");
+                    }}
+                    className="input flex-1 text-sm uppercase"
+                    placeholder="Cod. Desc"
+                  />
 
-                <Button type="button" onClick={handleApplyCoupon}>
-                  Aplicar
-                </Button>
+                  <Button type="button" onClick={handleApplyCoupon}>
+                    Aplicar
+                  </Button>
+                </div>
+
+                {couponError && (
+                  <p className="mt-2 text-xs text-[var(--destructive)]">
+                    {couponError}
+                  </p>
+                )}
               </div>
-
-              {couponError && (
-                <p className="mt-2 text-xs text-[var(--destructive)]">
-                  {couponError}
-                </p>
-              )}
-
-              {couponMessage && !couponError && (
-                <p className="mt-2 text-xs text-[var(--success)]">
-                  {couponMessage}
-                </p>
-              )}
-            </div>
+            )}
 
             {appliedCoupon && discountAmount > 0 && (
-              <div className="flex items-center justify-between text-sm">
-                <div>
-                  <span className="text-[var(--muted-foreground)]">
+              <div className="flex items-center justify-between text-sm text-[var(--accent)]">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">
                     Desc. {appliedCoupon.code}
                   </span>
+
                   <button
                     type="button"
                     onClick={handleRemoveCoupon}
-                    className="ml-2 text-xs text-[var(--accent)] hover:underline"
+                    className="text-xs font-medium text-[var(--accent)] hover:underline"
                   >
                     Quitar
                   </button>
                 </div>
 
-                <span className="font-medium text-[var(--destructive)]">
+                <span className="font-semibold text-[var(--accent)]">
                   -{formatPrice(discountAmount)}
                 </span>
               </div>
