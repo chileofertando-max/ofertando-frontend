@@ -8,6 +8,7 @@ import { useCartStore } from "@/store/cart";
 import { usePixel } from "@/hooks/usePixel";
 import { Button } from "@/components/ui/Button";
 import PagoTransferencia from "./PagoTransferencia";
+import { COMUNAS_CHILE, getRegionByComuna } from "@/data/chile-regiones-comunas";
 
 interface CheckoutFormData {
   nombre: string;
@@ -105,6 +106,9 @@ export function CheckoutForm() {
         .then((res) => res.json())
         .then((data) => {
           if (data.shippingData) {
+            const comunaGuardada = data.shippingData.ciudad || "";
+            const regionAutomatica = getRegionByComuna(comunaGuardada);
+
             setFormData((prev) => ({
               ...prev,
               nombre: data.shippingData.firstName || prev.nombre,
@@ -113,8 +117,11 @@ export function CheckoutForm() {
               telefono: data.shippingData.telefono || prev.telefono,
               rut: data.shippingData.rut || prev.rut,
               direccion: data.shippingData.direccion || prev.direccion,
-              ciudad: data.shippingData.ciudad || prev.ciudad,
-              region: data.shippingData.region || prev.region,
+              ciudad: comunaGuardada || prev.ciudad,
+              region:
+                regionAutomatica ||
+                data.shippingData.region ||
+                prev.region,
             }));
           }
         })
@@ -148,6 +155,17 @@ export function CheckoutForm() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleComunaChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const comuna = e.target.value;
+    const region = getRegionByComuna(comuna);
+
+    setFormData((prev) => ({
+      ...prev,
+      ciudad: comuna,
+      region,
+    }));
   };
 
   const handlePaymentMethodChange = (method: PaymentMethod) => {
@@ -462,16 +480,24 @@ export function CheckoutForm() {
                 >
                   Comuna
                 </label>
-                <input
-                  type="text"
+                <select
                   id="ciudad"
                   name="ciudad"
                   value={formData.ciudad}
-                  onChange={handleChange}
+                  onChange={handleComunaChange}
                   className="input"
-                  placeholder="Santiago"
                   required
-                />
+                >
+                  <option value="">Selecciona tu comuna</option>
+                  {COMUNAS_CHILE.map((item) => (
+                    <option
+                      key={`${item.region}-${item.comuna}`}
+                      value={item.comuna}
+                    >
+                      {item.comuna}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div>
@@ -486,9 +512,9 @@ export function CheckoutForm() {
                   id="region"
                   name="region"
                   value={formData.region}
-                  onChange={handleChange}
-                  className="input"
-                  placeholder="Región Metropolitana"
+                  readOnly
+                  className="input bg-[var(--background)] cursor-not-allowed"
+                  placeholder="Se completará automáticamente"
                   required
                 />
               </div>
@@ -517,7 +543,7 @@ export function CheckoutForm() {
                     </span>
                     <span className="block mt-1 text-sm text-[var(--muted-foreground)]">
                       Es opcional. Puedes comprar sin contraseña y crearla más
-                      adelante desde “ MI Cuenta”.
+                      adelante desde “Mi cuenta”.
                     </span>
                   </span>
                 </label>
