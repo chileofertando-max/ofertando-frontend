@@ -27,6 +27,36 @@ interface CheckoutFormData {
 
 type PaymentMethod = "webpay" | "transferencia";
 
+type CouponType = "products_percentage" | "shipping_free" | "total_fixed";
+
+interface CouponDefinition {
+  code: string;
+  type: CouponType;
+  value: number;
+  description: string;
+}
+
+const COUPONS: CouponDefinition[] = [
+  {
+    code: "OFERTANDO10",
+    type: "products_percentage",
+    value: 10,
+    description: "10% de descuento en productos",
+  },
+  {
+    code: "ENVIOGRATIS",
+    type: "shipping_free",
+    value: 0,
+    description: "Envío gratis",
+  },
+  {
+    code: "BIENVENIDO5000",
+    type: "total_fixed",
+    value: 5000,
+    description: "$5.000 de descuento",
+  },
+];
+
 function formatPrice(price: number) {
   return new Intl.NumberFormat("es-CL", {
     style: "currency",
@@ -49,6 +79,33 @@ function calculateShippingCost(subtotal: number, region: string) {
   return 10000;
 }
 
+function calculateDiscountAmount(
+  coupon: CouponDefinition | null,
+  subtotal: number,
+  shippingCost: number | null
+) {
+  if (!coupon) return 0;
+
+  const shipping = shippingCost ?? 0;
+  const totalBeforeDiscount = subtotal + shipping;
+
+  let discount = 0;
+
+  if (coupon.type === "products_percentage") {
+    discount = Math.round(subtotal * (coupon.value / 100));
+  }
+
+  if (coupon.type === "shipping_free") {
+    discount = shipping;
+  }
+
+  if (coupon.type === "total_fixed") {
+    discount = coupon.value;
+  }
+
+  return Math.max(0, Math.min(discount, totalBeforeDiscount));
+}
+
 export function CheckoutForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -57,6 +114,12 @@ export function CheckoutForm() {
   const [wantsPassword, setWantsPassword] = useState(false);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+
+  const [couponInput, setCouponInput] = useState("");
+  const [appliedCoupon, setAppliedCoupon] =
+    useState<CouponDefinition | null>(null);
+  const [couponError, setCouponError] = useState("");
+  const [couponMessage, setCouponMessage] = useState("");
 
   const [formData, setFormData] = useState<CheckoutFormData>({
     nombre: "",
@@ -75,7 +138,12 @@ export function CheckoutForm() {
 
   const subtotal = total();
   const shippingCost = calculateShippingCost(subtotal, formData.region);
-  const finalAmount = subtotal + (shippingCost ?? 0);
+  const discountAmount = calculateDiscountAmount(
+    appliedCoupon,
+    subtotal,
+    shippingCost
+  );
+  const finalAmount = Math.max(0, subtotal + (shippingCost ?? 0) - discountAmount);
 
   const shippingLabel =
     shippingCost === null
@@ -120,6 +188,8 @@ export function CheckoutForm() {
     region: formData.region,
     subtotal,
     envio: shippingCost ?? 0,
+    descuento: discountAmount,
+    cupon: appliedCoupon?.code || "",
     total: finalAmount,
   };
 
@@ -193,11 +263,64 @@ export function CheckoutForm() {
       ciudad: comuna,
       region,
     }));
+
+    if (appliedCoupon?.type === "shipping_free") {
+      setCouponMessage("");
+      setCouponError("");
+    }
   };
 
   const handlePaymentMethodChange = (method: PaymentMethod) => {
     setError("");
     setPaymentMethod(method);
+  };
+
+  const handleApplyCoupon = () => {
+    setCouponError("");
+    setCouponMessage("");
+
+    const normalizedCode = couponInput.trim().toUpperCase();
+
+    if (!normalizedCode) {
+      setCouponError("Ingresa un código de descuento.");
+      return;
+    }
+
+    const coupon = COUPONS.find((item) => item.code === normalizedCode);
+
+    if (!coupon) {
+      setAppliedCoupon(null);
+      setCouponError("El código ingresado no es válido.");
+      return;
+    }
+
+    if (coupon.type === "shipping_free" && shippingCost === null) {
+      setCouponError("Selecciona una comuna antes de aplicar envío gratis.");
+      return;
+    }
+
+    const previewDiscount = calculateDiscountAmount(
+      coupon,
+      subtotal,
+      shippingCost
+    );
+
+    if (previewDiscount <= 0) {
+      setAppliedCoupon(null);
+      setCouponError("Este código no genera descuento en este pedido.");
+      return;
+    }
+
+    setAppliedCoupon(coupon);
+    setCouponInput(normalizedCode);
+    setCouponMessage(`${coupon.code} aplicado correctamente.`);
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput("");
+    setCouponError("");
+    setCouponMessage("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -255,10 +378,17 @@ export function CheckoutForm() {
             cost: shippingCost,
             label: shippingLabel,
           },
+          coupon: appliedCoupon
+            ? {
+                code: appliedCoupon.code,
+                type: appliedCoupon.type,
+                discount: discountAmount,
+              }
+            : null,
           totals: {
             subtotal,
             shipping: shippingCost,
-            discount: 0,
+            discount: discountAmount,
             finalAmount,
           },
           accountData: {
@@ -285,10 +415,17 @@ export function CheckoutForm() {
             cost: shippingCost,
             label: shippingLabel,
           },
+          coupon: appliedCoupon
+            ? {
+                code: appliedCoupon.code,
+                type: appliedCoupon.type,
+                discount: discountAmount,
+              }
+            : null,
           totals: {
             subtotal,
             shipping: shippingCost,
-            discount: 0,
+            discount: discountAmount,
             finalAmount,
           },
           accountData: {
@@ -883,6 +1020,59 @@ export function CheckoutForm() {
               <span className="text-[var(--muted-foreground)]">Envío</span>
               <span className="font-medium">{shippingLabel}</span>
             </div>
+
+            <div className="pt-2">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={couponInput}
+                  onChange={(e) => {
+                    setCouponInput(e.target.value.toUpperCase());
+                    setCouponError("");
+                    setCouponMessage("");
+                  }}
+                  className="input flex-1 text-sm uppercase"
+                  placeholder="Cod. Desc"
+                />
+
+                <Button type="button" onClick={handleApplyCoupon}>
+                  Aplicar
+                </Button>
+              </div>
+
+              {couponError && (
+                <p className="mt-2 text-xs text-[var(--destructive)]">
+                  {couponError}
+                </p>
+              )}
+
+              {couponMessage && !couponError && (
+                <p className="mt-2 text-xs text-[var(--success)]">
+                  {couponMessage}
+                </p>
+              )}
+            </div>
+
+            {appliedCoupon && discountAmount > 0 && (
+              <div className="flex items-center justify-between text-sm">
+                <div>
+                  <span className="text-[var(--muted-foreground)]">
+                    Desc. {appliedCoupon.code}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleRemoveCoupon}
+                    className="ml-2 text-xs text-[var(--accent)] hover:underline"
+                  >
+                    Quitar
+                  </button>
+                </div>
+
+                <span className="font-medium text-[var(--destructive)]">
+                  -{formatPrice(discountAmount)}
+                </span>
+              </div>
+            )}
 
             <div className="flex justify-between pt-3 border-t border-[var(--border)]">
               <span className="font-semibold text-[var(--foreground)]">
