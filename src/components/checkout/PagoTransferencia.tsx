@@ -318,6 +318,72 @@ function guardarPedidoTransferencia(params: {
   return pedidoGuardado;
 }
 
+async function canjearCuponTransferencia(params: {
+  orden: OrdenCreada;
+  subtotal: number;
+  descuento: number;
+  cupon: string;
+  total: number;
+}) {
+  const { orden, subtotal, descuento, cupon, total } = params;
+
+  const codigo = String(cupon || "").trim().toUpperCase();
+
+  if (!codigo || subtotal <= 0 || descuento <= 0) {
+    return;
+  }
+
+  const orderId = String(
+    orden.numero_orden ||
+      orden.orden_id ||
+      orden.order_id ||
+      `TRANSFERENCIA-${Date.now()}`
+  );
+
+  const storageKey = `ofertando-cupon-transferencia-canjeado-${orderId}-${codigo}`;
+
+  if (sessionStorage.getItem(storageKey) === "1") {
+    return;
+  }
+
+  try {
+    const response = await fetch("/api/cupon-canjear", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        codigo,
+        subtotal,
+        orderId,
+        descuento,
+        total,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      console.warn(
+        "No se pudo registrar el uso del cupón por transferencia:",
+        data
+      );
+      return;
+    }
+
+    sessionStorage.setItem(storageKey, "1");
+
+    console.log("Cupón por transferencia canjeado correctamente:", {
+      codigo,
+      orderId,
+      descuento,
+      total,
+    });
+  } catch (error) {
+    console.warn("Error canjeando cupón por transferencia:", error);
+  }
+}
+
 export default function PagoTransferencia({
   carrito,
   comprador,
@@ -460,6 +526,14 @@ export default function PagoTransferencia({
       }
 
       const orden: OrdenCreada = data.data || data;
+
+      await canjearCuponTransferencia({
+        orden,
+        subtotal,
+        descuento,
+        cupon,
+        total: totalFinalTransferencia,
+      });
 
       pedidoConfirmadoRef.current = true;
 
