@@ -172,12 +172,13 @@ export function CheckoutForm() {
             shippingCost
           )} - promedio de entrega 2 a 3 días, plazo estimado 2 a 7 días máximo`;
 
-  const shippingSummaryLabel =
+  const shippingSummaryText =
     deliveryMethod === "retiro"
-      ? `${formatPrice(shippingCost ?? 0)} - disponible en 2 días`
-      : shippingCost === null
-        ? "Por confirmar"
-        : formatPrice(shippingCost);
+      ? "Envío - disponible en 2 días"
+      : "Envío";
+
+  const shippingSummaryAmount =
+    shippingCost === null ? "Por confirmar" : formatPrice(shippingCost);
 
   const isContactDataComplete =
     formData.nombre.trim() !== "" &&
@@ -1195,9 +1196,11 @@ export function CheckoutForm() {
             </div>
 
             <div className="flex justify-between gap-4 text-sm">
-              <span className="text-[var(--muted-foreground)]">Envío</span>
-              <span className="font-medium text-right">
-                {shippingSummaryLabel}
+              <span className="text-[var(--muted-foreground)]">
+                {shippingSummaryText}
+              </span>
+              <span className="font-medium text-right whitespace-nowrap">
+                {shippingSummaryAmount}
               </span>
             </div>
 
