@@ -26,6 +26,7 @@ interface CheckoutFormData {
 }
 
 type PaymentMethod = "webpay" | "transferencia";
+type DeliveryMethod = "despacho" | "retiro";
 
 type CouponDiscountType = "porcentaje" | "monto";
 
@@ -55,18 +56,37 @@ function formatPrice(price: number) {
   }).format(price);
 }
 
-function calculateShippingCost(subtotal: number, region: string) {
-  if (!region) return null;
+const SHIPPING_RM_PER_ITEM = 3750;
+const SHIPPING_OTHER_REGIONS_PER_ITEM = 5000;
+const SHIPPING_RM_MAX_PER_ORDER = 21000;
 
-  if (subtotal >= 50000) {
+function calculateTotalItemsQuantity(
+  items: Array<{ quantity?: number | string }>
+) {
+  return items.reduce((total, item) => {
+    return total + Math.max(1, Number(item.quantity || 1));
+  }, 0);
+}
+
+function calculateShippingCost(
+  region: string,
+  totalItemsQuantity: number,
+  deliveryMethod: DeliveryMethod
+) {
+  if (deliveryMethod === "retiro") {
     return 0;
   }
 
+  if (!region) return null;
+
+  const quantity = Math.max(1, totalItemsQuantity);
+
   if (isRegionMetropolitana(region)) {
-    return 7500;
+    const calculatedShipping = SHIPPING_RM_PER_ITEM * quantity;
+    return Math.min(calculatedShipping, SHIPPING_RM_MAX_PER_ORDER);
   }
 
-  return 10000;
+  return SHIPPING_OTHER_REGIONS_PER_ITEM * quantity;
 }
 
 function calculateDiscountAmount(
@@ -93,6 +113,8 @@ export function CheckoutForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("webpay");
+  const [deliveryMethod, setDeliveryMethod] =
+    useState<DeliveryMethod>("despacho");
 
   const [wantsPassword, setWantsPassword] = useState(false);
   const [password, setPassword] = useState("");
@@ -121,7 +143,14 @@ export function CheckoutForm() {
   const { trackInitiateCheckout } = usePixel();
 
   const subtotal = total();
-  const shippingCost = calculateShippingCost(subtotal, formData.region);
+  const totalItemsQuantity = calculateTotalItemsQuantity(items);
+
+  const shippingCost = calculateShippingCost(
+    formData.region,
+    totalItemsQuantity,
+    deliveryMethod
+  );
+
   const discountAmount = calculateDiscountAmount(appliedCoupon, subtotal);
 
   const finalAmount = Math.max(
@@ -129,22 +158,34 @@ export function CheckoutForm() {
     subtotal + (shippingCost ?? 0) - discountAmount
   );
 
-  const shippingLabel =
-    shippingCost === null
-      ? "Por confirmar"
-      : shippingCost === 0
-        ? "Gratis"
-        : formatPrice(shippingCost);
+  const deliveryTimeLabel =
+    deliveryMethod === "retiro"
+      ? "Disponible en 2 días"
+      : "Promedio de entrega 2 a 3 días. Plazo estimado de 2 a 7 días máximo.";
 
-  const isBuyerDataComplete =
+  const shippingLabel =
+    deliveryMethod === "retiro"
+      ? "Retiro en tienda - disponible en 2 días"
+      : shippingCost === null
+        ? "Por confirmar"
+        : `${formatPrice(
+            shippingCost
+          )} - promedio de entrega 2 a 3 días, plazo estimado 2 a 7 días máximo`;
+
+  const isContactDataComplete =
     formData.nombre.trim() !== "" &&
     formData.apellido.trim() !== "" &&
     formData.email.trim() !== "" &&
     formData.telefono.trim() !== "" &&
-    formData.rut.trim() !== "" &&
-    formData.direccion.trim() !== "" &&
-    formData.ciudad.trim() !== "" &&
-    formData.region.trim() !== "";
+    formData.rut.trim() !== "";
+
+  const isShippingDataComplete =
+    deliveryMethod === "retiro" ||
+    (formData.direccion.trim() !== "" &&
+      formData.ciudad.trim() !== "" &&
+      formData.region.trim() !== "");
+
+  const isBuyerDataComplete = isContactDataComplete && isShippingDataComplete;
 
   const carritoPagoTransferencia = items.map((item) => ({
     id: item.id,
@@ -167,9 +208,15 @@ export function CheckoutForm() {
     correo: formData.email,
     telefono: formData.telefono,
     rut: formData.rut,
-    direccion: formData.direccion,
-    ciudad: formData.ciudad,
-    region: formData.region,
+    direccion:
+      deliveryMethod === "retiro" ? "Retiro en tienda" : formData.direccion,
+    ciudad: deliveryMethod === "retiro" ? "Retiro en tienda" : formData.ciudad,
+    region: deliveryMethod === "retiro" ? "Retiro en tienda" : formData.region,
+    formaEntrega:
+      deliveryMethod === "retiro" ? "Retiro en tienda" : "Despacho a domicilio",
+    metodoEntrega: deliveryMethod,
+    plazoEntrega: deliveryTimeLabel,
+    envioEtiqueta: shippingLabel,
     subtotal,
     envio: shippingCost ?? 0,
     descuento: discountAmount,
@@ -252,6 +299,11 @@ export function CheckoutForm() {
   const handlePaymentMethodChange = (method: PaymentMethod) => {
     setError("");
     setPaymentMethod(method);
+  };
+
+  const handleDeliveryMethodChange = (method: DeliveryMethod) => {
+    setError("");
+    setDeliveryMethod(method);
   };
 
   const handleApplyCoupon = async () => {
@@ -344,7 +396,7 @@ export function CheckoutForm() {
       return;
     }
 
-    if (shippingCost === null) {
+    if (deliveryMethod === "despacho" && shippingCost === null) {
       setError("Selecciona una comuna para calcular el envío");
       return;
     }
@@ -361,6 +413,16 @@ export function CheckoutForm() {
 
     const orderId = `ORD-${Date.now()}`;
 
+    const orderFormData =
+      deliveryMethod === "retiro"
+        ? {
+            ...formData,
+            direccion: formData.direccion || "Retiro en tienda",
+            ciudad: formData.ciudad || "Retiro en tienda",
+            region: formData.region || "Retiro en tienda",
+          }
+        : formData;
+
     setIsLoading(true);
 
     try {
@@ -374,12 +436,14 @@ export function CheckoutForm() {
           orderId,
           returnUrl: window.location.origin,
           items,
-          formData,
+          formData: orderFormData,
           shipping: {
-            region: formData.region,
-            comuna: formData.ciudad,
+            method: deliveryMethod,
+            region: orderFormData.region,
+            comuna: orderFormData.ciudad,
             cost: shippingCost,
             label: shippingLabel,
+            deliveryTime: deliveryTimeLabel,
           },
           coupon: appliedCoupon
             ? {
@@ -411,13 +475,15 @@ export function CheckoutForm() {
         "pendingOrder",
         JSON.stringify({
           orderId,
-          formData,
+          formData: orderFormData,
           amount: finalAmount,
           shipping: {
-            region: formData.region,
-            comuna: formData.ciudad,
+            method: deliveryMethod,
+            region: orderFormData.region,
+            comuna: orderFormData.ciudad,
             cost: shippingCost,
             label: shippingLabel,
+            deliveryTime: deliveryTimeLabel,
           },
           coupon: appliedCoupon
             ? {
@@ -651,72 +717,146 @@ export function CheckoutForm() {
               />
             </div>
 
-            <div>
-              <label
-                htmlFor="direccion"
-                className="block text-sm font-medium text-[var(--foreground)] mb-2"
-              >
-                Dirección de envío
-              </label>
-              <input
-                type="text"
-                id="direccion"
-                name="direccion"
-                value={formData.direccion}
-                onChange={handleChange}
-                required
-                className="input"
-                placeholder="Av. Principal 123, Depto 45"
-              />
+            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-5">
+              <h3 className="text-sm font-semibold text-[var(--foreground)] mb-3">
+                Forma de entrega
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <label
+                  className={`cursor-pointer rounded-xl border p-4 transition-all ${
+                    deliveryMethod === "despacho"
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                      : "border-[var(--border-subtle)] bg-[var(--surface)]"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="deliveryMethod"
+                      value="despacho"
+                      checked={deliveryMethod === "despacho"}
+                      onChange={() => handleDeliveryMethodChange("despacho")}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="font-semibold text-[var(--foreground)]">
+                        Despacho a domicilio
+                      </p>
+                      <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                        Promedio de entrega 2 a 3 días. Plazo estimado de 2 a 7
+                        días máximo.
+                      </p>
+                    </div>
+                  </div>
+                </label>
+
+                <label
+                  className={`cursor-pointer rounded-xl border p-4 transition-all ${
+                    deliveryMethod === "retiro"
+                      ? "border-[var(--accent)] bg-[var(--accent)]/5"
+                      : "border-[var(--border-subtle)] bg-[var(--surface)]"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="radio"
+                      name="deliveryMethod"
+                      value="retiro"
+                      checked={deliveryMethod === "retiro"}
+                      onChange={() => handleDeliveryMethodChange("retiro")}
+                      className="mt-1"
+                    />
+                    <div>
+                      <p className="font-semibold text-[var(--foreground)]">
+                        Retiro en tienda
+                      </p>
+                      <p className="text-sm text-[var(--muted-foreground)] mt-1">
+                        Sin costo de envío. Disponible en 2 días.
+                      </p>
+                    </div>
+                  </div>
+                </label>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div>
-                <label
-                  htmlFor="ciudad"
-                  className="block text-sm font-medium text-[var(--foreground)] mb-2"
-                >
-                  Comuna
-                </label>
-                <select
-                  id="ciudad"
-                  name="ciudad"
-                  value={formData.ciudad}
-                  onChange={handleComunaChange}
-                  className="input"
-                  required
-                >
-                  <option value="">Selecciona tu comuna</option>
-                  {COMUNAS_CHILE.map((item) => (
-                    <option
-                      key={`${item.region}-${item.comuna}`}
-                      value={item.comuna}
+            {deliveryMethod === "despacho" && (
+              <>
+                <div>
+                  <label
+                    htmlFor="direccion"
+                    className="block text-sm font-medium text-[var(--foreground)] mb-2"
+                  >
+                    Dirección de envío
+                  </label>
+                  <input
+                    type="text"
+                    id="direccion"
+                    name="direccion"
+                    value={formData.direccion}
+                    onChange={handleChange}
+                    required={deliveryMethod === "despacho"}
+                    className="input"
+                    placeholder="Av. Principal 123, Depto 45"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label
+                      htmlFor="ciudad"
+                      className="block text-sm font-medium text-[var(--foreground)] mb-2"
                     >
-                      {item.comuna}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                      Comuna
+                    </label>
+                    <select
+                      id="ciudad"
+                      name="ciudad"
+                      value={formData.ciudad}
+                      onChange={handleComunaChange}
+                      className="input"
+                      required={deliveryMethod === "despacho"}
+                    >
+                      <option value="">Selecciona tu comuna</option>
+                      {COMUNAS_CHILE.map((item) => (
+                        <option
+                          key={`${item.region}-${item.comuna}`}
+                          value={item.comuna}
+                        >
+                          {item.comuna}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div>
-                <label
-                  htmlFor="region"
-                  className="block text-sm font-medium text-[var(--foreground)] mb-2"
-                >
-                  Región
-                </label>
-                <input
-                  type="text"
-                  id="region"
-                  name="region"
-                  value={formData.region}
-                  readOnly
-                  className="input bg-[var(--background)] cursor-not-allowed"
-                  placeholder="Se completará automáticamente"
-                  required
-                />
+                  <div>
+                    <label
+                      htmlFor="region"
+                      className="block text-sm font-medium text-[var(--foreground)] mb-2"
+                    >
+                      Región
+                    </label>
+                    <input
+                      type="text"
+                      id="region"
+                      name="region"
+                      value={formData.region}
+                      readOnly
+                      className="input bg-[var(--background)] cursor-not-allowed"
+                      placeholder="Se completará automáticamente"
+                      required={deliveryMethod === "despacho"}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            {deliveryMethod === "retiro" && (
+              <div className="rounded-2xl border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                Seleccionaste retiro en tienda. No se cobrará envío en este
+                pedido. Disponible en 2 días.
               </div>
-            </div>
+            )}
 
             <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--background)] p-5">
               <h3 className="text-sm font-semibold text-[var(--foreground)] mb-3">
@@ -728,17 +868,32 @@ export function CheckoutForm() {
                   <strong className="text-[var(--foreground)]">
                     Región Metropolitana:
                   </strong>{" "}
-                  envío $7.500. Gratis desde $50.000.
+                  envío $3.750 por artículo, con tope máximo de $21.000 por
+                  pedido.
                 </p>
                 <p>
                   <strong className="text-[var(--foreground)]">
                     Otras regiones:
                   </strong>{" "}
-                  envío $10.000. Gratis desde $50.000.
+                  envío $5.000 por artículo, calculado según la cantidad
+                  comprada y sin tope de envío.
+                </p>
+                <p>
+                  <strong className="text-[var(--foreground)]">
+                    Despacho a domicilio:
+                  </strong>{" "}
+                  promedio de entrega 2 a 3 días. Plazo estimado de 2 a 7 días
+                  máximo.
+                </p>
+                <p>
+                  <strong className="text-[var(--foreground)]">
+                    Retiro en tienda:
+                  </strong>{" "}
+                  sin costo de envío. Disponible en 2 días.
                 </p>
               </div>
 
-              {formData.region && (
+              {deliveryMethod === "despacho" && formData.region && (
                 <div className="mt-4 rounded-xl bg-[var(--surface)] border border-[var(--border-subtle)] px-4 py-3 text-sm">
                   <span className="text-[var(--muted-foreground)]">
                     Envío calculado para{" "}
@@ -747,6 +902,17 @@ export function CheckoutForm() {
                     {formData.ciudad}, {formData.region}
                   </strong>
                   <span className="text-[var(--muted-foreground)]">: </span>
+                  <strong className="text-[var(--accent)]">
+                    {shippingLabel}
+                  </strong>
+                </div>
+              )}
+
+              {deliveryMethod === "retiro" && (
+                <div className="mt-4 rounded-xl bg-[var(--surface)] border border-[var(--border-subtle)] px-4 py-3 text-sm">
+                  <span className="text-[var(--muted-foreground)]">
+                    Entrega seleccionada:{" "}
+                  </span>
                   <strong className="text-[var(--accent)]">
                     {shippingLabel}
                   </strong>
@@ -955,7 +1121,7 @@ export function CheckoutForm() {
                   Completa todos los datos del comprador para registrar la orden
                   por transferencia bancaria.
                 </div>
-              ) : shippingCost === null ? (
+              ) : deliveryMethod === "despacho" && shippingCost === null ? (
                 <div className="p-4 bg-[var(--destructive-muted)] border border-[var(--destructive)]/20 rounded-xl text-[var(--destructive)] text-sm">
                   Selecciona una comuna para calcular el envío.
                 </div>
@@ -1021,9 +1187,9 @@ export function CheckoutForm() {
               <span className="font-medium">{formatPrice(subtotal)}</span>
             </div>
 
-            <div className="flex justify-between text-sm">
+            <div className="flex justify-between gap-4 text-sm">
               <span className="text-[var(--muted-foreground)]">Envío</span>
-              <span className="font-medium">{shippingLabel}</span>
+              <span className="font-medium text-right">{shippingLabel}</span>
             </div>
 
             {!appliedCoupon && (
