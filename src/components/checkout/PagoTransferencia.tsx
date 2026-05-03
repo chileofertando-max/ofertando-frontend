@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useCartStore } from "@/store/cart";
 
 type ProductoCarrito = {
@@ -321,6 +322,8 @@ export default function PagoTransferencia({
   carrito,
   comprador,
 }: PagoTransferenciaProps) {
+  const router = useRouter();
+
   const [loading, setLoading] = useState(false);
   const [ordenCreada, setOrdenCreada] = useState<OrdenCreada | null>(null);
   const [error, setError] = useState("");
@@ -328,6 +331,8 @@ export default function PagoTransferencia({
   const [whatsappUrl, setWhatsappUrl] = useState("");
 
   const { clearCart } = useCartStore();
+
+  const pedidoConfirmadoRef = useRef(false);
 
   const resumenMontos = getResumenMontos(carrito, comprador);
 
@@ -346,6 +351,62 @@ export default function PagoTransferencia({
    * Usamos el total final calculado en checkout: subtotal + envío - descuento.
    */
   const totalOrden = totalConfirmado ?? total;
+
+  useEffect(() => {
+    function limpiarCarritoSiPedidoConfirmado() {
+      if (pedidoConfirmadoRef.current) {
+        clearCart();
+      }
+    }
+
+    window.addEventListener("beforeunload", limpiarCarritoSiPedidoConfirmado);
+
+    return () => {
+      window.removeEventListener(
+        "beforeunload",
+        limpiarCarritoSiPedidoConfirmado
+      );
+
+      limpiarCarritoSiPedidoConfirmado();
+    };
+  }, [clearCart]);
+
+  useEffect(() => {
+    if (!ordenCreada) {
+      document.body.classList.remove("ofertando-checkout-confirmado");
+      return;
+    }
+
+    document.body.classList.add("ofertando-checkout-confirmado");
+
+    const styleId = "ofertando-hide-cart-confirmacion-style";
+
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement("style");
+      style.id = styleId;
+      style.innerHTML = `
+        body.ofertando-checkout-confirmado header a[href*="carrito"],
+        body.ofertando-checkout-confirmado header a[href*="cart"],
+        body.ofertando-checkout-confirmado header button[aria-label*="carrito"],
+        body.ofertando-checkout-confirmado header button[aria-label*="Carrito"],
+        body.ofertando-checkout-confirmado header button[aria-label*="cart"],
+        body.ofertando-checkout-confirmado header button[aria-label*="Cart"],
+        body.ofertando-checkout-confirmado header [data-cart],
+        body.ofertando-checkout-confirmado header [data-cart-button],
+        body.ofertando-checkout-confirmado header .cart-icon,
+        body.ofertando-checkout-confirmado header .cart-button,
+        body.ofertando-checkout-confirmado header .shopping-cart {
+          display: none !important;
+        }
+      `;
+
+      document.head.appendChild(style);
+    }
+
+    return () => {
+      document.body.classList.remove("ofertando-checkout-confirmado");
+    };
+  }, [ordenCreada]);
 
   async function confirmarTransferencia() {
     try {
@@ -400,6 +461,8 @@ export default function PagoTransferencia({
 
       const orden: OrdenCreada = data.data || data;
 
+      pedidoConfirmadoRef.current = true;
+
       setOrdenCreada(orden);
       setTotalConfirmado(totalFinalTransferencia);
 
@@ -411,10 +474,6 @@ export default function PagoTransferencia({
       });
 
       setWhatsappUrl(pedidoGuardado.whatsapp.url);
-
-      setTimeout(() => {
-        clearCart();
-      }, 5000);
     } catch (err: unknown) {
       const message =
         err instanceof Error
@@ -425,6 +484,12 @@ export default function PagoTransferencia({
     } finally {
       setLoading(false);
     }
+  }
+
+  function volverAlCatalogo() {
+    clearCart();
+    pedidoConfirmadoRef.current = false;
+    router.push("/catalogo");
   }
 
   if (ordenCreada) {
@@ -526,22 +591,32 @@ export default function PagoTransferencia({
             debes adjuntar el comprobante y presionar enviar.
           </p>
 
-          {whatsappUrl && (
-            <a
-              href={whatsappUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-green-600 px-5 py-3 text-center font-bold text-white transition hover:bg-green-700 sm:w-auto"
-            >
-              Enviar comprobante por WhatsApp
-            </a>
-          )}
-        </div>
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+            {whatsappUrl && (
+              <a
+                href={whatsappUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-full items-center justify-center rounded-xl bg-green-600 px-5 py-3 text-center font-bold text-white transition hover:bg-green-700 sm:w-auto"
+              >
+                Enviar comprobante por WhatsApp
+              </a>
+            )}
 
-        <p className="mt-4 text-center text-xs text-gray-500">
-          En unos segundos se limpiará el carrito. El número de pedido quedará
-          guardado temporalmente para usarlo desde el botón de WhatsApp.
-        </p>
+            <button
+              type="button"
+              onClick={volverAlCatalogo}
+              className="inline-flex w-full items-center justify-center rounded-xl border border-gray-300 bg-white px-5 py-3 text-center font-bold text-gray-900 transition hover:bg-gray-100 sm:w-auto"
+            >
+              Volver al catálogo
+            </button>
+          </div>
+
+          <p className="mt-3 text-xs text-blue-800">
+            Al volver al catálogo, el carrito de esta compra se limpiará
+            automáticamente.
+          </p>
+        </div>
       </div>
     );
   }
