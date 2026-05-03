@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useSession } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { useCartStore } from "@/store/cart";
 import { CartDrawer } from "@/components/checkout/CartDrawer";
 import { Nav } from "@/components/layout/Nav";
@@ -10,13 +10,13 @@ import { Nav } from "@/components/layout/Nav";
 export function Header() {
   const [isCartOpen, setIsCartOpen] = useState(false);
 
-  const { data: session } = useSession();
+  const { data: session, status } = useSession();
 
   const items = useCartStore((s) => s.items);
   const itemCount = items.reduce((acc, i) => acc + i.quantity, 0);
 
-  const nombreUsuario =
-    session?.user?.name || session?.user?.email || "";
+  const estaLogeado = status === "authenticated";
+  const nombreUsuario = session?.user?.name || "Mi cuenta";
 
   return (
     <>
@@ -48,24 +48,41 @@ export function Header() {
 
             <Nav />
 
-            <div className="flex items-center gap-3">
-              {nombreUsuario && (
-                <div className="hidden sm:flex flex-col items-end leading-tight max-w-[190px]">
-                  <span className="text-[11px] text-gray-500">
-                    Usuario
-                  </span>
-                  <span className="truncate text-sm font-semibold text-gray-900">
-                    {nombreUsuario}
-                  </span>
-                </div>
-              )}
+            <div className="flex items-center gap-2 sm:gap-3">
+              {estaLogeado ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                    className="hidden sm:inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+                  >
+                    Cerrar sesión
+                  </button>
 
-              {nombreUsuario && (
-                <div className="flex sm:hidden flex-col items-end leading-tight max-w-[110px]">
-                  <span className="truncate text-xs font-semibold text-gray-900">
-                    {nombreUsuario}
-                  </span>
+                  <div className="hidden sm:flex flex-col items-end leading-tight max-w-[160px]">
+                    <span className="text-[11px] text-gray-500">
+                      Usuario
+                    </span>
+                    <span className="truncate text-[11px] font-bold text-gray-900">
+                      {nombreUsuario}
+                    </span>
+                  </div>
+
+                  <div className="flex sm:hidden flex-col items-end leading-tight max-w-[95px]">
+                    <span className="truncate text-[11px] font-bold text-gray-900">
+                      {nombreUsuario}
+                    </span>
+                  </div>
                 </div>
+              ) : (
+                status !== "loading" && (
+                  <Link
+                    href="/login"
+                    className="inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-100 hover:text-gray-900"
+                  >
+                    Iniciar sesión
+                  </Link>
+                )
               )}
 
               <button
