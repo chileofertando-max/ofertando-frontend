@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useCartStore } from "@/store/cart";
 import { CartDrawer } from "@/components/checkout/CartDrawer";
@@ -9,7 +10,9 @@ import { Nav } from "@/components/layout/Nav";
 
 export function Header() {
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [accionUsuario, setAccionUsuario] = useState("");
 
+  const router = useRouter();
   const { data: session, status } = useSession();
 
   const items = useCartStore((s) => s.items);
@@ -18,11 +21,25 @@ export function Header() {
   const estaLogeado = status === "authenticated";
   const nombreUsuario = session?.user?.name || "Mi cuenta";
 
+  function manejarAccionUsuario(valor: string) {
+    setAccionUsuario(valor);
+
+    if (valor === "editar-perfil") {
+      router.push("/mi-cuenta/datos");
+      setAccionUsuario("");
+      return;
+    }
+
+    if (valor === "cerrar-sesion") {
+      signOut({ callbackUrl: "/" });
+    }
+  }
+
   return (
     <>
       <header className="sticky top-0 z-40 bg-white/85 backdrop-blur-lg border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16 md:h-20">
+          <div className="flex items-center justify-between h-20 md:h-20">
             <Link href="/" className="flex items-center gap-2 group">
               <div className="w-9 h-9 bg-[var(--accent)] rounded-xl flex items-center justify-center text-white transition-transform group-hover:scale-105">
                 <svg
@@ -50,29 +67,23 @@ export function Header() {
 
             <div className="flex items-center gap-2 sm:gap-3">
               {estaLogeado ? (
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => signOut({ callbackUrl: "/" })}
-                    className="hidden sm:inline-flex items-center justify-center rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-gray-600 transition hover:bg-gray-100 hover:text-gray-900"
+                <div className="flex flex-col items-end leading-tight max-w-[145px] sm:max-w-[190px]">
+                  <span className="text-[11px] text-gray-500">Usuario</span>
+
+                  <span className="mt-0.5 max-w-full truncate text-[11px] font-bold text-gray-900">
+                    {nombreUsuario}
+                  </span>
+
+                  <select
+                    value={accionUsuario}
+                    onChange={(e) => manejarAccionUsuario(e.target.value)}
+                    className="mt-1 h-6 max-w-full rounded-md border border-gray-200 bg-white px-2 text-[11px] font-semibold text-gray-700 outline-none transition hover:bg-gray-50 focus:border-[var(--accent)]"
+                    aria-label="Opciones de usuario"
                   >
-                    Cerrar sesión
-                  </button>
-
-                  <div className="hidden sm:flex flex-col items-end leading-tight max-w-[160px]">
-                    <span className="text-[11px] text-gray-500">
-                      Usuario
-                    </span>
-                    <span className="truncate text-[11px] font-bold text-gray-900">
-                      {nombreUsuario}
-                    </span>
-                  </div>
-
-                  <div className="flex sm:hidden flex-col items-end leading-tight max-w-[95px]">
-                    <span className="truncate text-[11px] font-bold text-gray-900">
-                      {nombreUsuario}
-                    </span>
-                  </div>
+                    <option value="">Opciones</option>
+                    <option value="editar-perfil">Editar perfil</option>
+                    <option value="cerrar-sesion">Cerrar sesión</option>
+                  </select>
                 </div>
               ) : (
                 status !== "loading" && (
