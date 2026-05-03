@@ -50,7 +50,7 @@ export default async function Footer() {
     "Tu tienda online de ofertas. Productos de calidad con atención personalizada.";
 
   return (
-    <footer className="bg-[var(--surface)] border-t border-[var(--border)]">
+    <footer className="print:hidden bg-[var(--surface)] border-t border-[var(--border)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8 lg:gap-12">
           <div className="col-span-2 md:col-span-1">
