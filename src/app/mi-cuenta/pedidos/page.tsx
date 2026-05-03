@@ -147,9 +147,6 @@ DATOS DEL PEDIDO
 Número de pedido: ${numeroPedido}
 Monto total transferido: ${total}
 
-PRODUCTOS COMPRADOS
-${productos}
-
 DATOS DEL COMPRADOR
 Nombre: ${nombre}
 Correo: ${email}
