@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import PrintButton from "./PrintButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -96,7 +97,11 @@ function getTotalDescuento(order: any) {
   return Number(order?.discount_total || 0);
 }
 
-function esPedidoDelUsuario(order: any, emailUsuario: string, customerId?: number | null) {
+function esPedidoDelUsuario(
+  order: any,
+  emailUsuario: string,
+  customerId?: number | null,
+) {
   const billingEmail = String(order?.billing?.email || "").toLowerCase().trim();
   const userEmail = String(emailUsuario || "").toLowerCase().trim();
   const orderCustomerId = Number(order?.customer_id || 0);
@@ -136,8 +141,10 @@ async function obtenerCustomerIdPorEmail(email: string, authHeader: string) {
 export default async function PedidoDetallePage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
+  const { id } = await params;
+
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.email) {
@@ -174,7 +181,7 @@ export default async function PedidoDetallePage({
 
   try {
     const res = await fetch(
-      `${process.env.NEXT_PUBLIC_WP_REST_URL}/wc/v3/orders/${params.id}`,
+      `${process.env.NEXT_PUBLIC_WP_REST_URL}/wc/v3/orders/${id}`,
       {
         headers: { Authorization: authHeader },
         cache: "no-store",
@@ -279,17 +286,7 @@ export default async function PedidoDetallePage({
           ← Volver a Mis pedidos
         </Link>
 
-        <button
-          type="button"
-          onClick={() => {
-            if (typeof window !== "undefined") {
-              window.print();
-            }
-          }}
-          className="inline-flex items-center justify-center rounded-xl bg-black px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-gray-800"
-        >
-          Imprimir / Guardar PDF
-        </button>
+        <PrintButton />
       </div>
 
       <main className="print-page mx-auto max-w-5xl rounded-3xl border bg-white p-8 shadow-sm print:p-0">
@@ -300,6 +297,7 @@ export default async function PedidoDetallePage({
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-600 text-xl font-bold text-white">
                   ✳
                 </div>
+
                 <div>
                   <h1 className="text-2xl font-black text-gray-950">
                     Ofertando.cl
@@ -354,7 +352,8 @@ export default async function PedidoDetallePage({
                 <strong>Nombre:</strong> {getNombreCliente(order)}
               </p>
               <p>
-                <strong>Correo:</strong> {order?.billing?.email || "No informado"}
+                <strong>Correo:</strong>{" "}
+                {order?.billing?.email || "No informado"}
               </p>
               <p>
                 <strong>Teléfono:</strong>{" "}
@@ -374,7 +373,8 @@ export default async function PedidoDetallePage({
                 {order?.billing?.address_1 || "No informada"}
               </p>
               <p>
-                <strong>Comuna:</strong> {order?.billing?.city || "No informada"}
+                <strong>Comuna:</strong>{" "}
+                {order?.billing?.city || "No informada"}
               </p>
               <p>
                 <strong>Región:</strong>{" "}
@@ -454,7 +454,9 @@ export default async function PedidoDetallePage({
 
               <div className="flex justify-between gap-4">
                 <span>Cargo por envío</span>
-                <strong>{envio > 0 ? formatPrice(envio, currency) : "Gratis"}</strong>
+                <strong>
+                  {envio > 0 ? formatPrice(envio, currency) : "Gratis"}
+                </strong>
               </div>
 
               {descuento > 0 && (
