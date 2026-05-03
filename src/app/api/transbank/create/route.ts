@@ -9,38 +9,50 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
 
     const body = await req.json();
-    const { amount, orderId, returnUrl, items, formData } = body;
+
+    const {
+      amount,
+      orderId,
+      returnUrl,
+      items,
+      formData,
+      coupon,
+      totals,
+      shipping,
+    } = body;
 
     if (!amount || !orderId || !returnUrl) {
       return NextResponse.json(
         { success: false, error: "Faltan parámetros requeridos" },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     let safeCustomerId = 0;
 
     const email = formData?.email;
+
     if (email) {
       try {
         const authHeader =
           "Basic " +
           Buffer.from(
-            `${process.env.WC_CONSUMER_KEY}:${process.env.WC_CONSUMER_SECRET}`,
+            `${process.env.WC_CONSUMER_KEY}:${process.env.WC_CONSUMER_SECRET}`
           ).toString("base64");
 
         const wpRes = await fetch(
           `${process.env.NEXT_PUBLIC_WP_REST_URL}/wc/v3/customers?email=${encodeURIComponent(
-            email,
+            email
           )}`,
           {
             method: "GET",
             headers: { Authorization: authHeader },
-          },
+          }
         );
 
         if (wpRes.ok) {
           const customers = await wpRes.json();
+
           if (customers && customers.length > 0) {
             safeCustomerId = customers[0].id;
           }
@@ -91,7 +103,7 @@ export async function POST(req: NextRequest) {
 
     if (safeLineItems.length === 0) {
       throw new Error(
-        "El carrito está vacío o falló el mapeo antes de iniciar Webpay.",
+        "El carrito está vacío o falló el mapeo antes de iniciar Webpay."
       );
     }
 
@@ -99,6 +111,13 @@ export async function POST(req: NextRequest) {
       customerId: safeCustomerId,
       formData: formData || {},
       lineItems: safeLineItems,
+
+      // Datos agregados para registrar correctamente el cupón al confirmar Webpay
+      coupon: coupon || null,
+      totals: totals || null,
+      shipping: shipping || null,
+      amount,
+      orderId,
     };
 
     cookies().set("pending_order", JSON.stringify(pendingOrder), {
@@ -112,13 +131,16 @@ export async function POST(req: NextRequest) {
     const sessionId = `S-${Date.now()}`;
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://ofertando.cl";
-    const returnUrlCommit = `${siteUrl.replace(/\/$/, "")}/api/transbank/commit`;
+    const returnUrlCommit = `${siteUrl.replace(
+      /\/$/,
+      ""
+    )}/api/transbank/commit`;
 
     const response = await webpay.create(
       buyOrder,
       sessionId,
       amount,
-      returnUrlCommit,
+      returnUrlCommit
     );
 
     return NextResponse.json({
@@ -134,7 +156,7 @@ export async function POST(req: NextRequest) {
         success: false,
         error: "Error al iniciar transacción",
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
