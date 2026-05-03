@@ -365,13 +365,17 @@ export default async function PedidoDetallePage({
           __html: `
             @page {
               size: Letter;
-              margin: 10mm;
+              margin: 6mm;
             }
 
             @media print {
               html,
               body {
                 background: white !important;
+                width: 216mm !important;
+                min-height: 279mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
               }
 
               header,
@@ -392,26 +396,81 @@ export default async function PedidoDetallePage({
                 border: none !important;
                 border-radius: 0 !important;
                 padding: 0 !important;
-                font-size: 11px !important;
+                font-size: 9.5px !important;
+                line-height: 1.22 !important;
+              }
+
+              .print-page h1 {
+                font-size: 18px !important;
+                line-height: 1.1 !important;
+              }
+
+              .print-page h2 {
+                font-size: 20px !important;
+                line-height: 1.1 !important;
+                margin-top: 10px !important;
+              }
+
+              .print-page h3 {
+                font-size: 12px !important;
+                line-height: 1.1 !important;
+                margin-bottom: 6px !important;
+              }
+
+              .print-page p {
+                margin-top: 2px !important;
+                margin-bottom: 2px !important;
               }
 
               .print-compact-title {
-                font-size: 22px !important;
-                margin-top: 14px !important;
+                font-size: 20px !important;
+                margin-top: 10px !important;
               }
 
               .print-card {
-                padding: 12px !important;
-                border-radius: 12px !important;
+                padding: 8px !important;
+                border-radius: 10px !important;
               }
 
               .print-section {
-                margin-top: 14px !important;
+                margin-top: 8px !important;
+              }
+
+              .print-page .border-b {
+                padding-bottom: 8px !important;
+              }
+
+              .print-page .mt-4,
+              .print-page .mt-5,
+              .print-page .mt-6,
+              .print-page .mt-7,
+              .print-page .mt-8 {
+                margin-top: 8px !important;
+              }
+
+              .print-page .mb-4 {
+                margin-bottom: 8px !important;
+              }
+
+              .print-page .pb-5,
+              .print-page .pb-6 {
+                padding-bottom: 8px !important;
+              }
+
+              .print-page .pt-3,
+              .print-page .pt-4,
+              .print-page .pt-5 {
+                padding-top: 6px !important;
+              }
+
+              .print-table {
+                font-size: 9.5px !important;
               }
 
               .print-table th,
               .print-table td {
-                padding: 7px 9px !important;
+                padding: 4px 6px !important;
+                line-height: 1.15 !important;
               }
 
               .products-table thead {
@@ -423,7 +482,7 @@ export default async function PedidoDetallePage({
                 page-break-inside: avoid;
               }
 
-              .products-table tbody tr:nth-child(11) {
+              .products-table tbody tr:nth-child(20n + 21) {
                 break-before: page;
                 page-break-before: always;
               }
@@ -431,6 +490,22 @@ export default async function PedidoDetallePage({
               .avoid-break {
                 break-inside: avoid;
                 page-break-inside: avoid;
+              }
+
+              .print-observacion {
+                padding: 8px !important;
+              }
+
+              .print-observacion p {
+                font-size: 9px !important;
+                line-height: 1.2 !important;
+              }
+
+              footer {
+                margin-top: 8px !important;
+                padding-top: 6px !important;
+                font-size: 8.5px !important;
+                line-height: 1.2 !important;
               }
             }
           `,
@@ -598,7 +673,7 @@ export default async function PedidoDetallePage({
         </section>
 
         <section className="print-section avoid-break mt-7 grid gap-5 md:grid-cols-[1fr_360px]">
-          <div className="print-card rounded-2xl border border-blue-200 bg-blue-50 p-5">
+          <div className="print-card print-observacion rounded-2xl border border-blue-200 bg-blue-50 p-5">
             <h3 className="text-lg font-black text-blue-950">
               Observación del pedido
             </h3>
@@ -668,5 +743,8 @@ export default async function PedidoDetallePage({
         </footer>
       </main>
     </div>
+  );
+}
+
   );
 }
