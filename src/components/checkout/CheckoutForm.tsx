@@ -172,6 +172,9 @@ export function CheckoutForm() {
             shippingCost
           )} - promedio de entrega 2 a 3 días, plazo estimado 2 a 7 días máximo`;
 
+  const shippingSummaryLabel =
+    shippingCost === null ? "Por confirmar" : formatPrice(shippingCost);
+
   const isContactDataComplete =
     formData.nombre.trim() !== "" &&
     formData.apellido.trim() !== "" &&
@@ -1187,9 +1190,9 @@ export function CheckoutForm() {
               <span className="font-medium">{formatPrice(subtotal)}</span>
             </div>
 
-            <div className="flex justify-between gap-4 text-sm">
+            <div className="flex justify-between text-sm">
               <span className="text-[var(--muted-foreground)]">Envío</span>
-              <span className="font-medium text-right">{shippingLabel}</span>
+              <span className="font-medium">{shippingSummaryLabel}</span>
             </div>
 
             {!appliedCoupon && (
