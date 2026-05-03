@@ -80,6 +80,18 @@ function getNombreCliente(order: any) {
   return fullName || "Cliente Ofertando";
 }
 
+function getMeta(order: any, key: string) {
+  if (!Array.isArray(order?.meta_data)) return "";
+
+  const item = order.meta_data.find((meta: any) => meta?.key === key);
+
+  if (!item || item.value === undefined || item.value === null) {
+    return "";
+  }
+
+  return String(item.value);
+}
+
 function normalizarNombreProducto(nombre: string) {
   return String(nombre || "Producto")
     .replace(/\s+x\s+\d+\s*$/i, "")
@@ -139,9 +151,8 @@ function obtenerProductosPedido(order: any): ProductoNota[] {
   }
 
   /*
-   * En los pedidos por transferencia creados desde Ofertando,
-   * si WooCommerce no encontró el producto por ID, el producto pudo
-   * quedar guardado como fee_line. Por eso también leemos fee_lines.
+   * En pedidos por transferencia creados desde Ofertando,
+   * si WooCommerce no encontró el producto por ID, puede quedar como fee_line.
    */
   if (Array.isArray(order?.fee_lines)) {
     order.fee_lines.forEach((item: any) => {
@@ -357,160 +368,156 @@ export default async function PedidoDetallePage({
   const descuento = getTotalDescuento(order);
   const total = Number(order?.total || 0);
   const currency = order?.currency || "CLP";
+  const rut = getMeta(order, "_ofertando_rut_comprador");
 
   return (
     <div className="min-h-screen bg-gray-100 px-4 py-8 print:bg-white print:px-0 print:py-0">
-      <style
-        dangerouslySetInnerHTML={{
-          __html: `
-            @page {
-              size: Letter;
-              margin: 6mm;
-            }
+      <style>{`
+        @page {
+          size: Letter;
+          margin: 6mm;
+        }
 
-            @media print {
-              html,
-              body {
-                background: white !important;
-                width: 216mm !important;
-                min-height: 279mm !important;
-                margin: 0 !important;
-                padding: 0 !important;
-              }
+        @media print {
+          html,
+          body {
+            background: white !important;
+            width: 216mm !important;
+            min-height: 279mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
 
-              header,
-              nav,
-              .no-print,
-              iframe,
-              [class*="whatsapp"],
-              [id*="whatsapp"],
-              [href*="wa.me"] {
-                display: none !important;
-              }
+          body * {
+            visibility: hidden !important;
+          }
 
-              .print-page {
-                width: 100% !important;
-                max-width: none !important;
-                margin: 0 !important;
-                box-shadow: none !important;
-                border: none !important;
-                border-radius: 0 !important;
-                padding: 0 !important;
-                font-size: 9.5px !important;
-                line-height: 1.22 !important;
-              }
+          .nota-pedido-print,
+          .nota-pedido-print * {
+            visibility: visible !important;
+          }
 
-              .print-page h1 {
-                font-size: 18px !important;
-                line-height: 1.1 !important;
-              }
+          .nota-pedido-print {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 100% !important;
+            max-width: none !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            font-size: 9px !important;
+            line-height: 1.16 !important;
+          }
 
-              .print-page h2 {
-                font-size: 20px !important;
-                line-height: 1.1 !important;
-                margin-top: 10px !important;
-              }
+          .no-print,
+          .no-print * {
+            display: none !important;
+            visibility: hidden !important;
+          }
 
-              .print-page h3 {
-                font-size: 12px !important;
-                line-height: 1.1 !important;
-                margin-bottom: 6px !important;
-              }
+          .print-logo {
+            width: 34px !important;
+            height: 34px !important;
+            border-radius: 10px !important;
+          }
 
-              .print-page p {
-                margin-top: 2px !important;
-                margin-bottom: 2px !important;
-              }
+          .print-page-title {
+            font-size: 18px !important;
+            line-height: 1.05 !important;
+            margin-top: 8px !important;
+          }
 
-              .print-compact-title {
-                font-size: 20px !important;
-                margin-top: 10px !important;
-              }
+          .nota-pedido-print h1 {
+            font-size: 17px !important;
+            line-height: 1.05 !important;
+          }
 
-              .print-card {
-                padding: 8px !important;
-                border-radius: 10px !important;
-              }
+          .nota-pedido-print h2 {
+            font-size: 18px !important;
+            line-height: 1.05 !important;
+          }
 
-              .print-section {
-                margin-top: 8px !important;
-              }
+          .nota-pedido-print h3 {
+            font-size: 11px !important;
+            line-height: 1.05 !important;
+            margin-bottom: 4px !important;
+          }
 
-              .print-page .border-b {
-                padding-bottom: 8px !important;
-              }
+          .nota-pedido-print p {
+            margin-top: 1px !important;
+            margin-bottom: 1px !important;
+          }
 
-              .print-page .mt-4,
-              .print-page .mt-5,
-              .print-page .mt-6,
-              .print-page .mt-7,
-              .print-page .mt-8 {
-                margin-top: 8px !important;
-              }
+          .print-card {
+            padding: 7px !important;
+            border-radius: 8px !important;
+          }
 
-              .print-page .mb-4 {
-                margin-bottom: 8px !important;
-              }
+          .print-section {
+            margin-top: 7px !important;
+          }
 
-              .print-page .pb-5,
-              .print-page .pb-6 {
-                padding-bottom: 8px !important;
-              }
+          .print-header {
+            padding-bottom: 6px !important;
+          }
 
-              .print-page .pt-3,
-              .print-page .pt-4,
-              .print-page .pt-5 {
-                padding-top: 6px !important;
-              }
+          .print-grid {
+            gap: 7px !important;
+          }
 
-              .print-table {
-                font-size: 9.5px !important;
-              }
+          .print-table {
+            font-size: 8.8px !important;
+          }
 
-              .print-table th,
-              .print-table td {
-                padding: 4px 6px !important;
-                line-height: 1.15 !important;
-              }
+          .print-table th,
+          .print-table td {
+            padding: 3px 5px !important;
+            line-height: 1.1 !important;
+          }
 
-              .products-table thead {
-                display: table-header-group;
-              }
+          .products-table thead {
+            display: table-header-group;
+          }
 
-              .products-table tr {
-                break-inside: avoid;
-                page-break-inside: avoid;
-              }
+          .products-table tr {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
 
-              .products-table tbody tr:nth-child(20n + 21) {
-                break-before: page;
-                page-break-before: always;
-              }
+          .products-table tbody tr:nth-child(20n + 21) {
+            break-before: page;
+            page-break-before: always;
+          }
 
-              .avoid-break {
-                break-inside: avoid;
-                page-break-inside: avoid;
-              }
+          .avoid-break {
+            break-inside: avoid;
+            page-break-inside: avoid;
+          }
 
-              .print-observacion {
-                padding: 8px !important;
-              }
+          .print-observacion {
+            padding: 7px !important;
+          }
 
-              .print-observacion p {
-                font-size: 9px !important;
-                line-height: 1.2 !important;
-              }
+          .print-observacion p {
+            font-size: 8.5px !important;
+            line-height: 1.15 !important;
+          }
 
-              footer {
-                margin-top: 8px !important;
-                padding-top: 6px !important;
-                font-size: 8.5px !important;
-                line-height: 1.2 !important;
-              }
-            }
-          `,
-        }}
-      />
+          .print-total {
+            font-size: 15px !important;
+          }
+
+          .print-footer {
+            margin-top: 6px !important;
+            padding-top: 5px !important;
+            font-size: 7.8px !important;
+            line-height: 1.12 !important;
+          }
+        }
+      `}</style>
 
       <div className="no-print mx-auto mb-5 flex max-w-5xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <Link
@@ -523,12 +530,12 @@ export default async function PedidoDetallePage({
         <PrintButton />
       </div>
 
-      <main className="print-page mx-auto max-w-5xl rounded-3xl border bg-white p-8 shadow-sm">
-        <section className="avoid-break border-b pb-5">
+      <main className="nota-pedido-print mx-auto max-w-5xl rounded-3xl border bg-white p-8 shadow-sm">
+        <section className="print-header avoid-break border-b pb-5">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-600 text-xl font-bold text-white">
+                <div className="print-logo flex h-12 w-12 items-center justify-center rounded-2xl bg-orange-600 text-xl font-bold text-white">
                   ✳
                 </div>
 
@@ -542,7 +549,7 @@ export default async function PedidoDetallePage({
                 </div>
               </div>
 
-              <h2 className="print-compact-title mt-6 text-3xl font-black text-gray-950">
+              <h2 className="print-page-title mt-6 text-3xl font-black text-gray-950">
                 Nota de pedido
               </h2>
 
@@ -575,7 +582,7 @@ export default async function PedidoDetallePage({
           </div>
         </section>
 
-        <section className="print-section avoid-break mt-6 grid gap-5 md:grid-cols-2">
+        <section className="print-section avoid-break mt-6 grid gap-5 md:grid-cols-2 print-grid">
           <div className="print-card rounded-2xl border p-5">
             <h3 className="text-lg font-black text-gray-950">
               Datos del comprador
@@ -585,6 +592,13 @@ export default async function PedidoDetallePage({
               <p>
                 <strong>Nombre:</strong> {getNombreCliente(order)}
               </p>
+
+              {rut && (
+                <p>
+                  <strong>RUT:</strong> {rut}
+                </p>
+              )}
+
               <p>
                 <strong>Correo:</strong>{" "}
                 {order?.billing?.email || "No informado"}
@@ -672,7 +686,7 @@ export default async function PedidoDetallePage({
           </div>
         </section>
 
-        <section className="print-section avoid-break mt-7 grid gap-5 md:grid-cols-[1fr_360px]">
+        <section className="print-section avoid-break mt-7 grid gap-5 md:grid-cols-[1fr_330px] print-grid">
           <div className="print-card print-observacion rounded-2xl border border-blue-200 bg-blue-50 p-5">
             <h3 className="text-lg font-black text-blue-950">
               Observación del pedido
@@ -711,7 +725,7 @@ export default async function PedidoDetallePage({
               )}
 
               <div className="border-t pt-3">
-                <div className="flex justify-between gap-4 text-xl font-black text-gray-950">
+                <div className="print-total flex justify-between gap-4 text-xl font-black text-gray-950">
                   <span>Total</span>
                   <span>{formatPrice(total, currency)}</span>
                 </div>
@@ -731,7 +745,7 @@ export default async function PedidoDetallePage({
           </section>
         )}
 
-        <footer className="mt-7 border-t pt-4 text-center text-xs leading-5 text-gray-500">
+        <footer className="print-footer mt-7 border-t pt-4 text-center text-xs leading-5 text-gray-500">
           <p>
             <strong>Ofertando.cl</strong> — Documento generado para consulta del
             comprador.
@@ -743,8 +757,5 @@ export default async function PedidoDetallePage({
         </footer>
       </main>
     </div>
-  );
-}
-
   );
 }
