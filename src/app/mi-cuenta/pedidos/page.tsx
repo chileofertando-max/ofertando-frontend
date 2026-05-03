@@ -134,26 +134,23 @@ function generarMensajeWhatsapp(order: any) {
   const numeroPedido = order?.number || order?.id || "";
   const total = formatPrice(order?.total || 0, order?.currency || "CLP");
   const nombre = getNombreCliente(order);
-  const email = order?.billing?.email || "No informado";
-  const telefono = order?.billing?.phone || "No informado";
-  const direccion = order?.billing?.address_1 || "No informada";
-  const comuna = order?.billing?.city || "No informada";
-  const region = order?.billing?.state || "No informada";
-  const productos = getProductosTexto(order);
 
-  return `Hola Ofertando.cl, quiero enviar el comprobante de mi compra por transferencia bancaria.
+  return `Hola Ofertando.cl, realicé una compra por transferencia bancaria.
 
 DATOS DEL PEDIDO
 Número de pedido: ${numeroPedido}
-Monto total transferido: ${total}
+Monto total a transferir: ${total}
+
+DATOS BANCARIOS
+Nombre: OFERTANDO SpA
+RUT: 77.156.739-8
+Banco: Banco de Chile
+Tipo de cuenta: Cuenta Vista
+Número de cuenta: 172422241
+Correo: chileofertando@gmail.com
 
 DATOS DEL COMPRADOR
 Nombre: ${nombre}
-Correo: ${email}
-Teléfono: ${telefono}
-Dirección: ${direccion}
-Comuna: ${comuna}
-Región: ${region}
 
 Adjunto comprobante de transferencia para validar mi pedido.`;
 }
@@ -263,7 +260,6 @@ function SunCircleIcon({ className = "h-14 w-14" }: { className?: string }) {
       xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
-      {/* 50% línea continua */}
       <path
         d="M40 8C57.673 8 72 22.327 72 40"
         stroke="#ec4899"
@@ -278,7 +274,6 @@ function SunCircleIcon({ className = "h-14 w-14" }: { className?: string }) {
         strokeLinecap="round"
       />
 
-      {/* 50% línea discontinua */}
       <path
         d="M40 72C22.327 72 8 57.673 8 40C8 22.327 22.327 8 40 8"
         stroke="#ec4899"
