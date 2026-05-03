@@ -12,6 +12,13 @@ export const metadata: Metadata = {
   description: "Nota de pedido del comprador",
 };
 
+type ProductoNota = {
+  id: string | number;
+  nombre: string;
+  cantidad: number;
+  total: number;
+};
+
 function formatPrice(price: number | string, currency: string = "CLP") {
   const num = typeof price === "string" ? parseFloat(price) : price;
 
@@ -73,28 +80,139 @@ function getNombreCliente(order: any) {
   return fullName || "Cliente Ofertando";
 }
 
-function calcularSubtotalProductos(order: any) {
-  if (!Array.isArray(order?.line_items)) return 0;
+function normalizarNombreProducto(nombre: string) {
+  return String(nombre || "Producto")
+    .replace(/\s+x\s+\d+\s*$/i, "")
+    .trim();
+}
 
-  return order.line_items.reduce((acc: number, item: any) => {
-    return acc + Number(item?.total || 0);
+function obtenerCantidadDesdeNombre(nombre: string) {
+  const match = String(nombre || "").match(/\s+x\s+(\d+)\s*$/i);
+
+  if (match?.[1]) {
+    return Number(match[1]);
+  }
+
+  return 1;
+}
+
+function esLineaEnvio(nombre: string) {
+  const n = String(nombre || "").toLowerCase();
+
+  return (
+    n.includes("envío") ||
+    n.includes("envio") ||
+    n.includes("despacho") ||
+    n.includes("flete") ||
+    n.includes("cargo por envío") ||
+    n.includes("cargo por envio")
+  );
+}
+
+function esLineaDescuento(nombre: string) {
+  const n = String(nombre || "").toLowerCase();
+
+  return (
+    n.includes("descuento") ||
+    n.includes("cupón") ||
+    n.includes("cupon") ||
+    n.includes("rebaja")
+  );
+}
+
+function obtenerProductosPedido(order: any): ProductoNota[] {
+  const productos: ProductoNota[] = [];
+
+  if (Array.isArray(order?.line_items)) {
+    order.line_items.forEach((item: any) => {
+      const nombre = String(item?.name || "Producto");
+      const cantidad = Number(item?.quantity || 1);
+      const total = Number(item?.total || 0);
+
+      productos.push({
+        id: `line-${item?.id || nombre}`,
+        nombre,
+        cantidad: cantidad > 0 ? cantidad : 1,
+        total,
+      });
+    });
+  }
+
+  /*
+   * En los pedidos por transferencia creados desde Ofertando,
+   * si WooCommerce no encontró el producto por ID, el producto pudo
+   * quedar guardado como fee_line. Por eso también leemos fee_lines.
+   */
+  if (Array.isArray(order?.fee_lines)) {
+    order.fee_lines.forEach((item: any) => {
+      const nombreOriginal = String(item?.name || "Producto");
+      const total = Number(item?.total || 0);
+
+      if (esLineaEnvio(nombreOriginal) || esLineaDescuento(nombreOriginal)) {
+        return;
+      }
+
+      productos.push({
+        id: `fee-${item?.id || nombreOriginal}`,
+        nombre: normalizarNombreProducto(nombreOriginal),
+        cantidad: obtenerCantidadDesdeNombre(nombreOriginal),
+        total,
+      });
+    });
+  }
+
+  return productos;
+}
+
+function calcularSubtotalProductos(order: any) {
+  return obtenerProductosPedido(order).reduce((acc, item) => {
+    return acc + Number(item.total || 0);
   }, 0);
 }
 
 function getTotalEnvio(order: any) {
+  let envio = 0;
+
   if (order?.shipping_total !== undefined) {
-    return Number(order.shipping_total || 0);
+    envio += Number(order.shipping_total || 0);
   }
 
-  if (!Array.isArray(order?.shipping_lines)) return 0;
+  if (Array.isArray(order?.shipping_lines)) {
+    envio += order.shipping_lines.reduce((acc: number, item: any) => {
+      return acc + Number(item?.total || 0);
+    }, 0);
+  }
 
-  return order.shipping_lines.reduce((acc: number, item: any) => {
-    return acc + Number(item?.total || 0);
-  }, 0);
+  if (Array.isArray(order?.fee_lines)) {
+    envio += order.fee_lines.reduce((acc: number, item: any) => {
+      const nombre = String(item?.name || "");
+
+      if (esLineaEnvio(nombre)) {
+        return acc + Number(item?.total || 0);
+      }
+
+      return acc;
+    }, 0);
+  }
+
+  return envio;
 }
 
 function getTotalDescuento(order: any) {
-  return Number(order?.discount_total || 0);
+  let descuento = Number(order?.discount_total || 0);
+
+  if (Array.isArray(order?.fee_lines)) {
+    order.fee_lines.forEach((item: any) => {
+      const nombre = String(item?.name || "");
+      const total = Number(item?.total || 0);
+
+      if (esLineaDescuento(nombre)) {
+        descuento += Math.abs(total);
+      }
+    });
+  }
+
+  return descuento;
 }
 
 function esPedidoDelUsuario(
@@ -233,6 +351,7 @@ export default async function PedidoDetallePage({
     );
   }
 
+  const productos = obtenerProductosPedido(order);
   const subtotalProductos = calcularSubtotalProductos(order);
   const envio = getTotalEnvio(order);
   const descuento = getTotalDescuento(order);
@@ -246,17 +365,22 @@ export default async function PedidoDetallePage({
           __html: `
             @page {
               size: Letter;
-              margin: 14mm;
+              margin: 10mm;
             }
 
             @media print {
+              html,
               body {
                 background: white !important;
               }
 
               header,
               nav,
-              .no-print {
+              .no-print,
+              iframe,
+              [class*="whatsapp"],
+              [id*="whatsapp"],
+              [href*="wa.me"] {
                 display: none !important;
               }
 
@@ -267,6 +391,41 @@ export default async function PedidoDetallePage({
                 box-shadow: none !important;
                 border: none !important;
                 border-radius: 0 !important;
+                padding: 0 !important;
+                font-size: 11px !important;
+              }
+
+              .print-compact-title {
+                font-size: 22px !important;
+                margin-top: 14px !important;
+              }
+
+              .print-card {
+                padding: 12px !important;
+                border-radius: 12px !important;
+              }
+
+              .print-section {
+                margin-top: 14px !important;
+              }
+
+              .print-table th,
+              .print-table td {
+                padding: 7px 9px !important;
+              }
+
+              .products-table thead {
+                display: table-header-group;
+              }
+
+              .products-table tr {
+                break-inside: avoid;
+                page-break-inside: avoid;
+              }
+
+              .products-table tbody tr:nth-child(11) {
+                break-before: page;
+                page-break-before: always;
               }
 
               .avoid-break {
@@ -289,8 +448,8 @@ export default async function PedidoDetallePage({
         <PrintButton />
       </div>
 
-      <main className="print-page mx-auto max-w-5xl rounded-3xl border bg-white p-8 shadow-sm print:p-0">
-        <section className="avoid-break border-b pb-6">
+      <main className="print-page mx-auto max-w-5xl rounded-3xl border bg-white p-8 shadow-sm">
+        <section className="avoid-break border-b pb-5">
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <div className="flex items-center gap-3">
@@ -308,7 +467,7 @@ export default async function PedidoDetallePage({
                 </div>
               </div>
 
-              <h2 className="mt-7 text-3xl font-black text-gray-950">
+              <h2 className="print-compact-title mt-6 text-3xl font-black text-gray-950">
                 Nota de pedido
               </h2>
 
@@ -317,7 +476,7 @@ export default async function PedidoDetallePage({
               </p>
             </div>
 
-            <div className="rounded-2xl border bg-gray-50 p-5 text-left sm:min-w-[260px]">
+            <div className="print-card rounded-2xl border bg-gray-50 p-5 text-left sm:min-w-[260px]">
               <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
                 Pedido
               </p>
@@ -341,8 +500,8 @@ export default async function PedidoDetallePage({
           </div>
         </section>
 
-        <section className="avoid-break mt-6 grid gap-5 md:grid-cols-2">
-          <div className="rounded-2xl border p-5">
+        <section className="print-section avoid-break mt-6 grid gap-5 md:grid-cols-2">
+          <div className="print-card rounded-2xl border p-5">
             <h3 className="text-lg font-black text-gray-950">
               Datos del comprador
             </h3>
@@ -362,7 +521,7 @@ export default async function PedidoDetallePage({
             </div>
           </div>
 
-          <div className="rounded-2xl border p-5">
+          <div className="print-card rounded-2xl border p-5">
             <h3 className="text-lg font-black text-gray-950">
               Dirección registrada
             </h3>
@@ -387,13 +546,13 @@ export default async function PedidoDetallePage({
           </div>
         </section>
 
-        <section className="mt-7">
+        <section className="print-section mt-7">
           <h3 className="mb-4 text-lg font-black text-gray-950">
             Productos del pedido
           </h3>
 
           <div className="overflow-hidden rounded-2xl border">
-            <table className="w-full border-collapse text-sm">
+            <table className="products-table print-table w-full border-collapse text-sm">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left font-bold text-gray-600">
@@ -409,27 +568,37 @@ export default async function PedidoDetallePage({
               </thead>
 
               <tbody>
-                {Array.isArray(order.line_items) &&
-                  order.line_items.map((item: any) => (
+                {productos.length > 0 ? (
+                  productos.map((item) => (
                     <tr key={item.id} className="border-t">
                       <td className="px-4 py-4 text-gray-900">
-                        <strong>{item.name}</strong>
+                        <strong>{item.nombre}</strong>
                       </td>
                       <td className="px-4 py-4 text-center text-gray-700">
-                        {item.quantity}
+                        {item.cantidad}
                       </td>
                       <td className="px-4 py-4 text-right font-bold text-gray-900">
                         {formatPrice(item.total, currency)}
                       </td>
                     </tr>
-                  ))}
+                  ))
+                ) : (
+                  <tr className="border-t">
+                    <td
+                      colSpan={3}
+                      className="px-4 py-4 text-center text-gray-500"
+                    >
+                      No se encontraron productos asociados a este pedido.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </section>
 
-        <section className="avoid-break mt-7 grid gap-5 md:grid-cols-[1fr_360px]">
-          <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
+        <section className="print-section avoid-break mt-7 grid gap-5 md:grid-cols-[1fr_360px]">
+          <div className="print-card rounded-2xl border border-blue-200 bg-blue-50 p-5">
             <h3 className="text-lg font-black text-blue-950">
               Observación del pedido
             </h3>
@@ -441,7 +610,7 @@ export default async function PedidoDetallePage({
             </p>
           </div>
 
-          <div className="rounded-2xl border bg-gray-50 p-5">
+          <div className="print-card rounded-2xl border bg-gray-50 p-5">
             <h3 className="text-lg font-black text-gray-950">
               Resumen de pago
             </h3>
@@ -477,7 +646,7 @@ export default async function PedidoDetallePage({
         </section>
 
         {order?.customer_note && (
-          <section className="avoid-break mt-7 rounded-2xl border p-5">
+          <section className="print-section avoid-break mt-7 rounded-2xl border p-5">
             <h3 className="text-lg font-black text-gray-950">
               Nota del cliente
             </h3>
@@ -487,7 +656,7 @@ export default async function PedidoDetallePage({
           </section>
         )}
 
-        <footer className="mt-8 border-t pt-5 text-center text-xs leading-5 text-gray-500">
+        <footer className="mt-7 border-t pt-4 text-center text-xs leading-5 text-gray-500">
           <p>
             <strong>Ofertando.cl</strong> — Documento generado para consulta del
             comprador.
