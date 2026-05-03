@@ -19,6 +19,32 @@ function getWordPressRestUrl() {
   return url;
 }
 
+/**
+ * Ruta de diagnóstico.
+ * Sirve para abrir en navegador y confirmar que la API está desplegada.
+ */
+export async function GET() {
+  try {
+    const wpUrl = getWordPressRestUrl();
+
+    return NextResponse.json({
+      ok: true,
+      message: "API cupon-canjear activa. Esta ruta real funciona por POST.",
+      wordpressRestUrl: wpUrl,
+      hasSecret: Boolean(process.env.OFERTANDO_CUPON_SECRET),
+    });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: error instanceof Error ? error.message : "Error de configuración.",
+        hasSecret: Boolean(process.env.OFERTANDO_CUPON_SECRET),
+      },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -26,6 +52,14 @@ export async function POST(request: Request) {
     const codigo = String(body.codigo || "").trim().toUpperCase();
     const subtotal = Number(body.subtotal || 0);
     const orderId = String(body.orderId || "").trim();
+
+    console.log("Canje cupón solicitado:", {
+      codigo,
+      subtotal,
+      orderId,
+      descuento: Number(body.descuento || 0),
+      total: Number(body.total || 0),
+    });
 
     if (!codigo) {
       return NextResponse.json(
@@ -60,6 +94,8 @@ export async function POST(request: Request) {
     const secret = process.env.OFERTANDO_CUPON_SECRET || "";
 
     if (!secret) {
+      console.error("Falta configurar OFERTANDO_CUPON_SECRET en Vercel.");
+
       return NextResponse.json(
         {
           success: false,
@@ -89,9 +125,24 @@ export async function POST(request: Request) {
 
     const data = await response.json();
 
-    return NextResponse.json(data, {
-      status: response.ok ? 200 : response.status,
+    console.log("Respuesta WordPress canje cupón:", {
+      status: response.status,
+      ok: response.ok,
+      data,
     });
+
+    return NextResponse.json(
+      {
+        ...data,
+        debug: {
+          wpStatus: response.status,
+          wpOk: response.ok,
+        },
+      },
+      {
+        status: response.ok ? 200 : response.status,
+      }
+    );
   } catch (error) {
     console.error("Error canjeando cupón:", error);
 
@@ -99,6 +150,7 @@ export async function POST(request: Request) {
       {
         success: false,
         message: "No se pudo registrar el uso del cupón.",
+        error: error instanceof Error ? error.message : "Error desconocido",
       },
       { status: 500 }
     );
