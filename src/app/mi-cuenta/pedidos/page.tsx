@@ -34,7 +34,7 @@ function formatDate(date: string) {
 }
 
 function getStatusLabel(status: string, paymentMethod?: string) {
-  const cleanStatus = status?.toLowerCase();
+  const cleanStatus = String(status || "").toLowerCase();
 
   if (
     paymentMethod === "bacs" &&
@@ -57,19 +57,35 @@ function getStatusLabel(status: string, paymentMethod?: string) {
 }
 
 function getStatusColor(status: string) {
+  const cleanStatus = String(status || "").toLowerCase();
+
   const colors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    "on-hold": "bg-orange-100 text-orange-800 border-orange-200",
-    processing: "bg-blue-100 text-blue-800 border-blue-200",
-    completed: "bg-green-100 text-green-800 border-green-200",
-    cancelled: "bg-red-100 text-red-800 border-red-200",
-    refunded: "bg-gray-100 text-gray-800 border-gray-200",
-    failed: "bg-red-100 text-red-800 border-red-200",
+    pending: "border-amber-200 bg-amber-50 text-amber-800",
+    "on-hold": "border-orange-200 bg-orange-50 text-orange-800",
+    processing: "border-blue-200 bg-blue-50 text-blue-800",
+    completed: "border-emerald-200 bg-emerald-50 text-emerald-800",
+    cancelled: "border-red-200 bg-red-50 text-red-800",
+    refunded: "border-slate-200 bg-slate-50 text-slate-700",
+    failed: "border-red-200 bg-red-50 text-red-800",
   };
 
-  return (
-    colors[status?.toLowerCase()] || "bg-gray-100 text-gray-800 border-gray-200"
-  );
+  return colors[cleanStatus] || "border-slate-200 bg-slate-50 text-slate-700";
+}
+
+function getStatusDotColor(status: string) {
+  const cleanStatus = String(status || "").toLowerCase();
+
+  const colors: Record<string, string> = {
+    pending: "bg-amber-500",
+    "on-hold": "bg-orange-500",
+    processing: "bg-blue-500",
+    completed: "bg-emerald-500",
+    cancelled: "bg-red-500",
+    refunded: "bg-slate-500",
+    failed: "bg-red-500",
+  };
+
+  return colors[cleanStatus] || "bg-slate-400";
 }
 
 function getMetodoPago(order: any) {
@@ -153,18 +169,240 @@ function generarWhatsappUrl(order: any) {
   )}`;
 }
 
+function SunIcon({ className = "h-10 w-10" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      className={className}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      <circle cx="32" cy="32" r="12" fill="#fbbf24" />
+      <circle cx="32" cy="32" r="7" fill="#f59e0b" />
+
+      <path
+        d="M32 4V13"
+        stroke="#fbbf24"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M32 51V60"
+        stroke="#fbbf24"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M4 32H13"
+        stroke="#fbbf24"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M51 32H60"
+        stroke="#fbbf24"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M12.2 12.2L18.6 18.6"
+        stroke="#fbbf24"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M45.4 45.4L51.8 51.8"
+        stroke="#fbbf24"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M51.8 12.2L45.4 18.6"
+        stroke="#fbbf24"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M18.6 45.4L12.2 51.8"
+        stroke="#fbbf24"
+        strokeWidth="4"
+        strokeLinecap="round"
+      />
+      <path
+        d="M20.6 6.9L24.1 15.2"
+        stroke="#fbbf24"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M39.9 48.8L43.4 57.1"
+        stroke="#fbbf24"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M6.9 43.4L15.2 39.9"
+        stroke="#fbbf24"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M48.8 24.1L57.1 20.6"
+        stroke="#fbbf24"
+        strokeWidth="3.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function SunCircleIcon({ className = "h-14 w-14" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 80 80"
+      className={className}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      aria-hidden="true"
+    >
+      {/* 50% línea continua */}
+      <path
+        d="M40 8C57.673 8 72 22.327 72 40"
+        stroke="#ec4899"
+        strokeWidth="6"
+        strokeLinecap="round"
+      />
+
+      <path
+        d="M72 40C72 57.673 57.673 72 40 72"
+        stroke="#ec4899"
+        strokeWidth="6"
+        strokeLinecap="round"
+      />
+
+      {/* 50% línea discontinua */}
+      <path
+        d="M40 72C22.327 72 8 57.673 8 40C8 22.327 22.327 8 40 8"
+        stroke="#ec4899"
+        strokeWidth="6"
+        strokeLinecap="round"
+        strokeDasharray="13 12"
+      />
+
+      <g transform="translate(20 20) scale(0.63)">
+        <circle cx="32" cy="32" r="12" fill="#fbbf24" />
+        <circle cx="32" cy="32" r="7" fill="#f59e0b" />
+
+        <path
+          d="M32 4V13"
+          stroke="#fbbf24"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M32 51V60"
+          stroke="#fbbf24"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M4 32H13"
+          stroke="#fbbf24"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M51 32H60"
+          stroke="#fbbf24"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M12.2 12.2L18.6 18.6"
+          stroke="#fbbf24"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M45.4 45.4L51.8 51.8"
+          stroke="#fbbf24"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M51.8 12.2L45.4 18.6"
+          stroke="#fbbf24"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+        <path
+          d="M18.6 45.4L12.2 51.8"
+          stroke="#fbbf24"
+          strokeWidth="4"
+          strokeLinecap="round"
+        />
+      </g>
+    </svg>
+  );
+}
+
+function SearchIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2.4}
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M21 21l-4.35-4.35m1.1-5.4a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z"
+      />
+    </svg>
+  );
+}
+
+function WhatsappIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+    >
+      <path
+        d="M20.52 11.86A8.5 8.5 0 0 1 7.8 19.25L3.75 20.5l1.31-3.93A8.5 8.5 0 1 1 20.52 11.86Z"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.2 8.75c.17-.39.36-.4.53-.4h.45c.14 0 .36.05.55.42.2.37.66 1.28.72 1.37.05.09.09.2.02.33-.07.14-.11.22-.22.34-.11.13-.23.28-.33.37-.11.11-.23.23-.1.45.13.22.58.95 1.25 1.54.86.77 1.59 1.01 1.81 1.12.22.11.35.09.48-.06.14-.16.55-.64.7-.86.14-.22.29-.18.49-.11.2.07 1.27.6 1.49.71.22.11.37.16.42.25.05.09.05.53-.13 1.04-.18.51-1.07.98-1.49 1.01-.38.03-.86.04-1.39-.09-.32-.08-.73-.24-1.25-.47-2.21-.96-3.65-3.19-3.76-3.34-.11-.15-.9-1.2-.9-2.28s.57-1.62.77-1.85Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 export default async function PedidosPage() {
   const session = await getServerSession(authOptions);
 
   if (!session?.user?.email) {
     return (
       <div className="min-h-screen bg-[var(--background)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
           <div className="mb-8">
-            <nav className="flex items-center gap-2 text-sm text-[var(--muted-foreground)] mb-4">
+            <nav className="mb-4 flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
               <Link
                 href="/mi-cuenta"
-                className="hover:text-[var(--foreground)] transition-colors"
+                className="transition-colors hover:text-[var(--foreground)]"
               >
                 Mi Cuenta
               </Link>
@@ -172,19 +410,22 @@ export default async function PedidosPage() {
               <span className="text-[var(--foreground)]">Mis Pedidos</span>
             </nav>
 
-            <h1 className="text-display-sm text-[var(--foreground)]">
-              Mis Pedidos
-            </h1>
+            <div className="flex items-center gap-4">
+              <SunIcon className="h-12 w-12" />
+              <h1 className="text-display-sm text-[var(--foreground)]">
+                Mis Pedidos
+              </h1>
+            </div>
           </div>
 
-          <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border-subtle)] p-12 text-center">
-            <p className="text-[var(--muted-foreground)] mb-4">
+          <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface)] p-12 text-center shadow-sm">
+            <p className="mb-4 text-[var(--muted-foreground)]">
               Debes iniciar sesión para ver tus pedidos.
             </p>
 
             <Link
               href="/login?redirect=/mi-cuenta/pedidos"
-              className="inline-flex items-center gap-2 bg-[var(--accent)] text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:bg-[var(--accent-hover)]"
+              className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-6 py-3 font-medium text-white transition-all duration-200 hover:bg-[var(--accent-hover)]"
             >
               Iniciar Sesión
             </Link>
@@ -227,12 +468,12 @@ export default async function PedidosPage() {
   if (!customerId) {
     return (
       <div className="min-h-screen bg-[var(--background)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
           <div className="mb-8">
-            <nav className="flex items-center gap-2 text-sm text-[var(--muted-foreground)] mb-4">
+            <nav className="mb-4 flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
               <Link
                 href="/mi-cuenta"
-                className="hover:text-[var(--foreground)] transition-colors"
+                className="transition-colors hover:text-[var(--foreground)]"
               >
                 Mi Cuenta
               </Link>
@@ -240,12 +481,15 @@ export default async function PedidosPage() {
               <span className="text-[var(--foreground)]">Mis Pedidos</span>
             </nav>
 
-            <h1 className="text-display-sm text-[var(--foreground)]">
-              Mis Pedidos
-            </h1>
+            <div className="flex items-center gap-4">
+              <SunIcon className="h-12 w-12" />
+              <h1 className="text-display-sm text-[var(--foreground)]">
+                Mis Pedidos
+              </h1>
+            </div>
           </div>
 
-          <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border-subtle)] p-12 text-center">
+          <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface)] p-12 text-center shadow-sm">
             <p className="text-[var(--muted-foreground)]">
               No se encontró tu perfil de cliente.
             </p>
@@ -275,12 +519,12 @@ export default async function PedidosPage() {
 
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
+      <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8 lg:py-16">
         <div className="mb-8">
-          <nav className="flex items-center gap-2 text-sm text-[var(--muted-foreground)] mb-4">
+          <nav className="mb-4 flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
             <Link
               href="/mi-cuenta"
-              className="hover:text-[var(--foreground)] transition-colors"
+              className="transition-colors hover:text-[var(--foreground)]"
             >
               Mi Cuenta
             </Link>
@@ -288,81 +532,104 @@ export default async function PedidosPage() {
             <span className="text-[var(--foreground)]">Mis Pedidos</span>
           </nav>
 
-          <h1 className="text-display-sm text-[var(--foreground)]">
-            Mis Pedidos
-          </h1>
+          <div className="flex items-center gap-4">
+            <SunIcon className="h-14 w-14" />
 
-          <p className="mt-2 text-[var(--muted-foreground)]">
-            Revisa el estado de tus compras y gestiona el envío de comprobantes
-            cuando el pago sea por transferencia bancaria.
-          </p>
+            <div>
+              <h1 className="text-display-sm text-[var(--foreground)]">
+                Mis Pedidos
+              </h1>
+
+              <p className="mt-2 max-w-3xl text-[var(--muted-foreground)]">
+                Revisa el estado de tus compras y gestiona el envío de
+                comprobantes cuando el pago sea por transferencia bancaria.
+              </p>
+            </div>
+          </div>
         </div>
 
         {orders.length === 0 ? (
-          <div className="bg-[var(--surface)] rounded-2xl border border-[var(--border-subtle)] p-12 text-center">
-            <div className="w-20 h-20 bg-[var(--border-subtle)] rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-10 w-10 text-[var(--muted)]"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={1.5}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"
-                />
-              </svg>
+          <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--surface)] p-12 text-center shadow-sm">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-[var(--border-subtle)]">
+              <SunIcon className="h-12 w-12" />
             </div>
 
-            <h2 className="text-heading-md text-[var(--foreground)] mb-3">
+            <h2 className="mb-3 text-heading-md text-[var(--foreground)]">
               No tienes pedidos registrados
             </h2>
 
-            <p className="text-[var(--muted-foreground)] mb-8 max-w-md mx-auto">
+            <p className="mx-auto mb-8 max-w-md text-[var(--muted-foreground)]">
               Aquí podrás ver el historial de tus compras una vez que realices
               tu primer pedido.
             </p>
 
-            <Link href="/catalogo">
-              <button className="inline-flex items-center gap-2 bg-[var(--accent)] text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 hover:bg-[var(--accent-hover)] hover:shadow-lg active:scale-[0.98]">
-                Ir al catálogo
-              </button>
+            <Link
+              href="/catalogo"
+              className="inline-flex items-center gap-2 rounded-xl bg-[var(--accent)] px-6 py-3 font-medium text-white transition-all duration-200 hover:bg-[var(--accent-hover)] hover:shadow-lg active:scale-[0.98]"
+            >
+              Ir al catálogo
             </Link>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-[var(--border-subtle)] bg-[var(--surface)] shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-[var(--border-subtle)]">
-                <thead className="bg-gray-50">
+          <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-[0_18px_50px_rgba(15,23,42,0.08)]">
+            <div className="flex flex-col gap-4 border-b border-slate-200 bg-white px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-4">
+                <SunCircleIcon className="h-16 w-16 flex-none" />
+
+                <div>
+                  <h2 className="text-xl font-black text-slate-950">
+                    Historial de compras
+                  </h2>
+
+                  <p className="mt-1 text-sm text-slate-500">
+                    Consulta el estado y gestión de tus pedidos.
+                  </p>
+                </div>
+              </div>
+
+              <div className="inline-flex w-fit items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                <SunCircleIcon className="h-10 w-10 flex-none" />
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-500">
+                    Total de pedidos
+                  </p>
+                  <p className="text-2xl font-black text-pink-500">
+                    {orders.length}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto px-6 pt-6">
+              <table className="w-full min-w-[980px] overflow-hidden rounded-2xl border border-slate-200">
+                <thead className="bg-gray-100">
                   <tr>
-                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-600">
-                      Pedido
+                    <th className="px-6 py-4 text-left text-sm font-black text-slate-600">
+                      Número de pedido
                     </th>
-                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-600">
+                    <th className="px-6 py-4 text-left text-sm font-black text-slate-600">
                       Fecha
                     </th>
-                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-600">
+                    <th className="px-6 py-4 text-left text-sm font-black text-slate-600">
                       Estado
                     </th>
-                    <th className="px-5 py-4 text-right text-xs font-bold uppercase tracking-wide text-gray-600">
+                    <th className="px-6 py-4 text-left text-sm font-black text-slate-600">
                       Total
                     </th>
-                    <th className="px-5 py-4 text-left text-xs font-bold uppercase tracking-wide text-gray-600">
-                      Método
+                    <th className="px-6 py-4 text-left text-sm font-black text-slate-600">
+                      Forma de pago
                     </th>
-                    <th className="px-5 py-4 text-center text-xs font-bold uppercase tracking-wide text-gray-600">
-                      WhatsApp
+                    <th className="px-6 py-4 text-center text-sm font-black text-slate-600">
+                      Comprob de pago
                     </th>
-                    <th className="px-5 py-4 text-center text-xs font-bold uppercase tracking-wide text-gray-600">
-                      Ver
+                    <th className="px-6 py-4 text-center text-sm font-black text-slate-600">
+                      Detalle
                     </th>
                   </tr>
                 </thead>
 
-                <tbody className="divide-y divide-[var(--border-subtle)] bg-white">
+                <tbody className="divide-y divide-slate-100 bg-white">
                   {orders.map((order: any) => {
                     const transferenciaPendiente =
                       esTransferenciaPendiente(order);
@@ -370,59 +637,65 @@ export default async function PedidosPage() {
                     return (
                       <tr
                         key={order.id}
-                        className="transition-colors hover:bg-gray-50"
+                        className="transition-colors duration-200 hover:bg-slate-50"
                       >
-                        <td className="whitespace-nowrap px-5 py-4 text-sm font-bold text-[var(--foreground)]">
+                        <td className="whitespace-nowrap px-6 py-6 text-sm font-black text-slate-950">
                           #{order.number || order.id}
                         </td>
 
-                        <td className="whitespace-nowrap px-5 py-4 text-sm text-[var(--muted-foreground)]">
+                        <td className="whitespace-nowrap px-6 py-6 text-sm font-semibold text-slate-800">
                           {formatDate(order.date_created)}
                         </td>
 
-                        <td className="whitespace-nowrap px-5 py-4">
+                        <td className="whitespace-nowrap px-6 py-6">
                           <span
-                            className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${getStatusColor(
+                            className={`inline-flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-bold ${getStatusColor(
                               order.status,
                             )}`}
                           >
+                            <span
+                              className={`h-2 w-2 rounded-full ${getStatusDotColor(
+                                order.status,
+                              )}`}
+                            />
                             {getStatusLabel(order.status, order.payment_method)}
                           </span>
                         </td>
 
-                        <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-bold text-[var(--foreground)]">
+                        <td className="whitespace-nowrap px-6 py-6 text-sm font-black text-slate-950">
                           {formatPrice(order.total, order.currency)}
                         </td>
 
-                        <td className="whitespace-nowrap px-5 py-4 text-sm text-[var(--foreground)]">
+                        <td className="whitespace-nowrap px-6 py-6 text-sm font-semibold text-slate-800">
                           {getMetodoPago(order)}
                         </td>
 
-                        <td className="whitespace-nowrap px-5 py-4 text-center">
+                        <td className="whitespace-nowrap px-6 py-6 text-center">
                           {transferenciaPendiente ? (
                             <a
                               href={generarWhatsappUrl(order)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center rounded-xl bg-green-600 px-4 py-2 text-xs font-bold text-white transition hover:bg-green-700"
+                              className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-black text-white shadow-sm shadow-emerald-200 transition hover:bg-emerald-700 hover:shadow-md active:scale-[0.98]"
                             >
-                              Enviar comprobante
+                              <WhatsappIcon className="h-4 w-4" />
+                              Enviar
                             </a>
                           ) : (
-                            <span className="inline-flex items-center justify-center rounded-xl bg-gray-100 px-4 py-2 text-xs font-semibold text-gray-700">
+                            <span className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs font-bold text-slate-600">
                               Enviado
                             </span>
                           )}
                         </td>
 
-                        <td className="whitespace-nowrap px-5 py-4 text-center">
+                        <td className="whitespace-nowrap px-6 py-6 text-center">
                           <Link
                             href={`/mi-cuenta/pedidos/${order.id}`}
-                            title="Ver pedido"
-                            className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 transition hover:bg-gray-100 hover:text-black"
+                            title="Ver detalle del pedido"
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950 active:scale-[0.98]"
                           >
-                            <span className="sr-only">Ver pedido</span>
-                            🔍
+                            <SearchIcon className="h-4 w-4" />
+                            Ver detalle
                           </Link>
                         </td>
                       </tr>
@@ -432,9 +705,24 @@ export default async function PedidosPage() {
               </table>
             </div>
 
-            <div className="border-t border-[var(--border-subtle)] bg-gray-50 px-5 py-3 text-xs text-gray-500">
-              El botón de WhatsApp aparece solo cuando el pedido fue realizado
-              por transferencia bancaria y sigue pendiente de comprobante.
+            <div className="mx-6 mb-6 mt-6 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-6 py-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex h-7 w-7 flex-none items-center justify-center rounded-full bg-slate-400 text-xs font-black text-white">
+                  i
+                </div>
+
+                <span>
+                  El botón de comprobante aparece solo cuando el pedido fue
+                  realizado por transferencia bancaria y sigue pendiente.
+                </span>
+              </div>
+
+              <Link
+                href="/catalogo"
+                className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-sm font-black text-slate-800 transition hover:bg-slate-100"
+              >
+                Seguir comprando
+              </Link>
             </div>
           </div>
         )}
