@@ -371,7 +371,7 @@ export default async function PedidoDetallePage({
   const rut = getMeta(order, "_ofertando_rut_comprador");
 
   return (
-    <div className="min-h-screen bg-gray-100 px-4 py-8 print:bg-white print:px-0 print:py-0">
+    <div className="pedido-print-wrapper min-h-screen bg-gray-100 px-4 py-8 print:bg-white">
       <style>{`
         @page {
           size: Letter;
@@ -379,69 +379,86 @@ export default async function PedidoDetallePage({
         }
 
         @media print {
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+
           html,
           body {
             background: white !important;
-            width: 216mm !important;
-            min-height: 279mm !important;
+            height: auto !important;
+            min-height: 0 !important;
             margin: 0 !important;
             padding: 0 !important;
+            overflow: visible !important;
           }
 
-          body * {
-            visibility: hidden !important;
-          }
-
-          .nota-pedido-print,
-          .nota-pedido-print * {
-            visibility: visible !important;
-          }
-
-          .nota-pedido-print {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
-            max-width: none !important;
-            margin: 0 !important;
-            box-shadow: none !important;
-            border: none !important;
-            border-radius: 0 !important;
-            padding: 0 !important;
-            font-size: 9px !important;
-            line-height: 1.16 !important;
-          }
-
+          header,
+          nav,
           .no-print,
-          .no-print * {
+          .no-print *,
+          iframe,
+          [class*="whatsapp"],
+          [id*="whatsapp"],
+          [href*="wa.me"],
+          .fixed {
             display: none !important;
             visibility: hidden !important;
           }
 
+          .pedido-print-wrapper {
+            background: white !important;
+            min-height: 0 !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: visible !important;
+          }
+
+          .nota-pedido-print {
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            max-width: none !important;
+            height: auto !important;
+            min-height: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            font-size: 8.7px !important;
+            line-height: 1.12 !important;
+            overflow: visible !important;
+            break-after: auto !important;
+            page-break-after: auto !important;
+          }
+
           .print-logo {
-            width: 34px !important;
-            height: 34px !important;
-            border-radius: 10px !important;
+            width: 32px !important;
+            height: 32px !important;
+            border-radius: 9px !important;
           }
 
           .print-page-title {
-            font-size: 18px !important;
+            font-size: 17px !important;
             line-height: 1.05 !important;
-            margin-top: 8px !important;
+            margin-top: 7px !important;
           }
 
           .nota-pedido-print h1 {
-            font-size: 17px !important;
+            font-size: 16px !important;
             line-height: 1.05 !important;
           }
 
           .nota-pedido-print h2 {
-            font-size: 18px !important;
+            font-size: 17px !important;
             line-height: 1.05 !important;
           }
 
           .nota-pedido-print h3 {
-            font-size: 11px !important;
+            font-size: 10.5px !important;
             line-height: 1.05 !important;
             margin-bottom: 4px !important;
           }
@@ -452,12 +469,12 @@ export default async function PedidoDetallePage({
           }
 
           .print-card {
-            padding: 7px !important;
+            padding: 6px !important;
             border-radius: 8px !important;
           }
 
           .print-section {
-            margin-top: 7px !important;
+            margin-top: 6px !important;
           }
 
           .print-header {
@@ -465,17 +482,37 @@ export default async function PedidoDetallePage({
           }
 
           .print-grid {
-            gap: 7px !important;
+            gap: 6px !important;
+          }
+
+          .nota-pedido-print .mt-1,
+          .nota-pedido-print .mt-2,
+          .nota-pedido-print .mt-3,
+          .nota-pedido-print .mt-4,
+          .nota-pedido-print .mt-5,
+          .nota-pedido-print .mt-6,
+          .nota-pedido-print .mt-7,
+          .nota-pedido-print .mt-8 {
+            margin-top: 5px !important;
+          }
+
+          .nota-pedido-print .mb-4 {
+            margin-bottom: 5px !important;
+          }
+
+          .nota-pedido-print .space-y-2 > :not([hidden]) ~ :not([hidden]),
+          .nota-pedido-print .space-y-3 > :not([hidden]) ~ :not([hidden]) {
+            margin-top: 2px !important;
           }
 
           .print-table {
-            font-size: 8.8px !important;
+            font-size: 8.5px !important;
           }
 
           .print-table th,
           .print-table td {
-            padding: 3px 5px !important;
-            line-height: 1.1 !important;
+            padding: 2.7px 5px !important;
+            line-height: 1.08 !important;
           }
 
           .products-table thead {
@@ -498,23 +535,23 @@ export default async function PedidoDetallePage({
           }
 
           .print-observacion {
-            padding: 7px !important;
+            padding: 6px !important;
           }
 
           .print-observacion p {
-            font-size: 8.5px !important;
-            line-height: 1.15 !important;
+            font-size: 8.2px !important;
+            line-height: 1.12 !important;
           }
 
           .print-total {
-            font-size: 15px !important;
+            font-size: 14px !important;
           }
 
           .print-footer {
-            margin-top: 6px !important;
-            padding-top: 5px !important;
-            font-size: 7.8px !important;
-            line-height: 1.12 !important;
+            margin-top: 5px !important;
+            padding-top: 4px !important;
+            font-size: 7.5px !important;
+            line-height: 1.1 !important;
           }
         }
       `}</style>
