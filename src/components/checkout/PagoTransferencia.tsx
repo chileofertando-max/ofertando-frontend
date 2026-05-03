@@ -146,12 +146,12 @@ function generarResumenTotales(params: {
 
   const lineas = [
     `Subtotal productos: ${formatPrice(subtotal)}`,
-    `Envío: ${envio > 0 ? formatPrice(envio) : "Gratis"}`,
+    `Cargo por envío: ${envio > 0 ? formatPrice(envio) : "Gratis"}`,
   ];
 
   if (descuento > 0) {
     lineas.push(
-      `Descuento${cupon ? ` ${cupon}` : ""}: -${formatPrice(descuento)}`
+      `Descuento${cupon ? ` ${cupon}` : ""}: - ${formatPrice(descuento)}`
     );
   }
 
@@ -183,24 +183,25 @@ function generarMensajeWhatsapp(params: {
 
   return `Hola Ofertando.cl, realicé una compra por transferencia bancaria.
 
+DATOS DEL PEDIDO
 Número de pedido: ${numeroOrden}
-Monto a transferir: ${formatPrice(total)}
+Monto total a transferir: ${formatPrice(total)}
 
-Datos bancarios:
-${DATOS_BANCARIOS.titular}
+DETALLE DEL TOTAL
+${totales}
+
+DATOS BANCARIOS
+Nombre: ${DATOS_BANCARIOS.titular}
 RUT: ${DATOS_BANCARIOS.rut}
 Banco: ${DATOS_BANCARIOS.banco}
 Tipo de cuenta: ${DATOS_BANCARIOS.tipoCuenta}
 Número de cuenta: ${DATOS_BANCARIOS.numeroCuenta}
 Correo: ${DATOS_BANCARIOS.correo}
 
-Productos comprados:
+PRODUCTOS COMPRADOS
 ${productos}
 
-Resumen de pago:
-${totales}
-
-Datos del comprador:
+DATOS DEL COMPRADOR
 Nombre: ${nombreComprador || "No informado"}
 RUT: ${comprador.rut || "No informado"}
 Correo: ${comprador.email || comprador.correo || "No informado"}
@@ -209,7 +210,7 @@ Dirección: ${comprador.direccion || "No informada"}
 Comuna: ${comprador.ciudad || "No informada"}
 Región: ${comprador.region || "No informada"}
 
-Adjunto comprobante de transferencia.`;
+Adjunto comprobante de transferencia para validar mi pedido.`;
 }
 
 function guardarPedidoTransferencia(params: {
@@ -226,11 +227,20 @@ function guardarPedidoTransferencia(params: {
 
   const resumenMontos = getResumenMontos(carrito, comprador);
 
+  const compradorConMontos: Comprador = {
+    ...comprador,
+    subtotal: resumenMontos.subtotal,
+    envio: resumenMontos.envio,
+    descuento: resumenMontos.descuento,
+    cupon: resumenMontos.cupon,
+    total,
+  };
+
   const mensajeWhatsapp = generarMensajeWhatsapp({
     numeroOrden,
     total,
     carrito,
-    comprador,
+    comprador: compradorConMontos,
   });
 
   const pedidoGuardado = {
@@ -248,7 +258,7 @@ function guardarPedidoTransferencia(params: {
     descuento: resumenMontos.descuento,
     descuentoFormateado: formatPrice(resumenMontos.descuento),
     cupon: resumenMontos.cupon,
-    comprador,
+    comprador: compradorConMontos,
     productos: carrito,
     datosBancarios: DATOS_BANCARIOS,
     whatsapp: {
@@ -315,6 +325,7 @@ export default function PagoTransferencia({
   const [ordenCreada, setOrdenCreada] = useState<OrdenCreada | null>(null);
   const [error, setError] = useState("");
   const [totalConfirmado, setTotalConfirmado] = useState<number | null>(null);
+  const [whatsappUrl, setWhatsappUrl] = useState("");
 
   const { clearCart } = useCartStore();
 
@@ -340,6 +351,7 @@ export default function PagoTransferencia({
     try {
       setLoading(true);
       setError("");
+      setWhatsappUrl("");
 
       if (!carrito || carrito.length === 0) {
         throw new Error("Tu carrito está vacío.");
@@ -347,8 +359,17 @@ export default function PagoTransferencia({
 
       const totalFinalTransferencia = total;
 
+      const compradorConMontos: Comprador = {
+        ...comprador,
+        subtotal,
+        envio,
+        descuento,
+        cupon,
+        total: totalFinalTransferencia,
+      };
+
       const payload = {
-        comprador,
+        comprador: compradorConMontos,
         productos: carrito,
         subtotal,
         envio,
@@ -382,12 +403,14 @@ export default function PagoTransferencia({
       setOrdenCreada(orden);
       setTotalConfirmado(totalFinalTransferencia);
 
-      guardarPedidoTransferencia({
+      const pedidoGuardado = guardarPedidoTransferencia({
         orden,
         carrito,
-        comprador,
+        comprador: compradorConMontos,
         total: totalFinalTransferencia,
       });
+
+      setWhatsappUrl(pedidoGuardado.whatsapp.url);
 
       setTimeout(() => {
         clearCart();
@@ -406,44 +429,155 @@ export default function PagoTransferencia({
 
   if (ordenCreada) {
     return (
-      <div className="rounded-xl border bg-white p-6 shadow-sm">
-        <h2 className="text-xl font-bold text-green-700">
-          Orden registrada correctamente
-        </h2>
+      <div className="rounded-2xl border bg-white p-6 shadow-sm">
+        <div className="rounded-2xl border border-green-200 bg-green-50 p-5 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-green-600 text-xl font-bold text-white">
+            ✓
+          </div>
 
-        <p className="mt-3 text-gray-700">
-          Tu compra quedó registrada correctamente y quedó pendiente de pago por
-          transferencia.
-        </p>
+          <h2 className="mt-4 text-2xl font-bold text-green-800">
+            Pedido recibido correctamente
+          </h2>
 
-        <div className="mt-5 rounded-lg bg-blue-50 p-4 border border-blue-200">
-          <p className="text-sm text-blue-900">
-            Hemos dejado preparado el botón verde de WhatsApp con todos los datos
-            de tu pedido: número de pedido, monto, productos comprados, datos del
-            comprador y datos bancarios.
+          <p className="mt-2 text-sm text-green-900">
+            Tu compra quedó registrada en Ofertando.cl y está pendiente de
+            confirmación de pago por transferencia bancaria.
           </p>
 
-          <p className="mt-2 text-sm text-blue-900">
-            WhatsApp no se envía solo. Debes tocar el botón verde{" "}
-            <strong>“Enviar comprobante”</strong> y luego presionar{" "}
-            <strong>Enviar</strong> dentro de WhatsApp.
-          </p>
-
-          <p className="mt-2 text-sm text-blue-900">
-            Si envías ese WhatsApp, nosotros podremos comenzar a gestionar y
-            preparar tu pedido. Posteriormente, en esa misma conversación, podrás
-            adjuntar el comprobante de depósito o transferencia.
-          </p>
-
-          <p className="mt-2 text-sm text-blue-900">
-            Si no alcanzas a enviarlo en este momento, tendrás una oportunidad
-            más desde el botón verde <strong>“¿Te ayudamos?”</strong>.
-          </p>
+          {numeroOrden && (
+            <p className="mt-3 text-lg font-bold text-green-900">
+              Número de pedido: #{numeroOrden}
+            </p>
+          )}
         </div>
 
-        <div className="mt-5 rounded-lg bg-gray-50 p-4 border">
-          <h3 className="font-semibold mb-3">Datos para transferencia</h3>
+        <div className="mt-5 rounded-xl border border-orange-200 bg-orange-50 p-5">
+          <h3 className="text-lg font-bold text-orange-900">
+            Total a transferir
+          </h3>
 
+          <div className="mt-4 space-y-2 text-sm text-orange-950">
+            <div className="flex justify-between gap-4">
+              <span>Subtotal productos</span>
+              <strong>{formatPrice(subtotal)}</strong>
+            </div>
+
+            <div className="flex justify-between gap-4">
+              <span>Cargo por envío</span>
+              <strong>{envio > 0 ? formatPrice(envio) : "Gratis"}</strong>
+            </div>
+
+            {descuento > 0 && (
+              <div className="flex justify-between gap-4 text-green-700">
+                <span>Descuento{cupon ? ` ${cupon}` : ""}</span>
+                <strong>- {formatPrice(descuento)}</strong>
+              </div>
+            )}
+
+            <div className="mt-3 border-t border-orange-200 pt-3">
+              <div className="flex justify-between gap-4 text-lg font-bold text-orange-950">
+                <span>Total final</span>
+                <span>{formatPrice(totalOrden)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-xl border bg-gray-50 p-5">
+          <h3 className="text-lg font-bold text-gray-900">
+            Datos para transferencia
+          </h3>
+
+          <div className="mt-4 grid gap-2 text-sm text-gray-800 sm:grid-cols-2">
+            <p>
+              <strong>Nombre:</strong> {DATOS_BANCARIOS.titular}
+            </p>
+            <p>
+              <strong>RUT:</strong> {DATOS_BANCARIOS.rut}
+            </p>
+            <p>
+              <strong>Banco:</strong> {DATOS_BANCARIOS.banco}
+            </p>
+            <p>
+              <strong>Tipo de cuenta:</strong> {DATOS_BANCARIOS.tipoCuenta}
+            </p>
+            <p>
+              <strong>Número de cuenta:</strong> {DATOS_BANCARIOS.numeroCuenta}
+            </p>
+            <p>
+              <strong>Correo:</strong> {DATOS_BANCARIOS.correo}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-5">
+          <h3 className="text-lg font-bold text-blue-950">
+            Envía tu comprobante
+          </h3>
+
+          <p className="mt-2 text-sm leading-6 text-blue-900">
+            También enviamos el detalle del pedido a tu correo. Para comenzar a
+            gestionar la compra, realiza la transferencia y envíanos el
+            comprobante por WhatsApp indicando tu número de pedido.
+          </p>
+
+          <p className="mt-2 text-sm leading-6 text-blue-900">
+            El botón abrirá WhatsApp con un mensaje preparado y ordenado. Solo
+            debes adjuntar el comprobante y presionar enviar.
+          </p>
+
+          {whatsappUrl && (
+            <a
+              href={whatsappUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-green-600 px-5 py-3 text-center font-bold text-white transition hover:bg-green-700 sm:w-auto"
+            >
+              Enviar comprobante por WhatsApp
+            </a>
+          )}
+        </div>
+
+        <p className="mt-4 text-center text-xs text-gray-500">
+          En unos segundos se limpiará el carrito. El número de pedido quedará
+          guardado temporalmente para usarlo desde el botón de WhatsApp.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl border bg-white p-6 shadow-sm">
+      <h2 className="text-xl font-bold">Pago por transferencia bancaria</h2>
+
+      <p className="mt-3 text-gray-700">
+        Al confirmar, tu pedido quedará registrado como pendiente de pago por
+        transferencia bancaria.
+      </p>
+
+      <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50 p-4">
+        <p className="text-sm leading-6 text-blue-900">
+          Al confirmar este pedido, registraremos tu orden y dejaremos preparado
+          un mensaje de WhatsApp con todos los datos del pedido: número de pedido,
+          monto, productos comprados, datos del comprador y datos bancarios.
+        </p>
+
+        <p className="mt-2 text-sm leading-6 text-blue-900">
+          Importante: WhatsApp no se envía solo. Se abrirá con el mensaje listo y
+          tú solo debes presionar <strong>Enviar</strong>.
+        </p>
+
+        <p className="mt-2 text-sm leading-6 text-blue-900">
+          Si no alcanzas a enviar el WhatsApp en ese momento, tendrás una
+          oportunidad más para enviarlo desde el botón verde{" "}
+          <strong>“¿Te ayudamos?”</strong>.
+        </p>
+      </div>
+
+      <div className="mt-5 rounded-xl border bg-gray-50 p-4">
+        <h3 className="mb-3 font-semibold">Datos para transferencia</h3>
+
+        <div className="space-y-1 text-sm text-gray-800">
           <p>
             <strong>Nombre:</strong> {DATOS_BANCARIOS.titular}
           </p>
@@ -463,137 +597,42 @@ export default function PagoTransferencia({
             <strong>Correo:</strong> {DATOS_BANCARIOS.correo}
           </p>
         </div>
-
-        <div className="mt-5 rounded-lg bg-orange-50 p-4 border border-orange-200">
-          <p className="text-sm text-orange-800">
-            Una vez realizada la transferencia, adjunta el comprobante en la
-            conversación de WhatsApp indicando tu número de pedido.
-          </p>
-
-          {numeroOrden && (
-            <p className="mt-2 font-semibold text-orange-900">
-              Número de pedido: {numeroOrden}
-            </p>
-          )}
-
-          <div className="mt-3 space-y-1 text-sm text-orange-900">
-            <p>
-              <strong>Subtotal:</strong> {formatPrice(subtotal)}
-            </p>
-
-            <p>
-              <strong>Envío:</strong>{" "}
-              {envio > 0 ? formatPrice(envio) : "Gratis"}
-            </p>
-
-            {descuento > 0 && (
-              <p>
-                <strong>Descuento{cupon ? ` ${cupon}` : ""}:</strong> -
-                {formatPrice(descuento)}
-              </p>
-            )}
-
-            <p className="pt-1 text-base font-semibold">
-              Total a transferir: {formatPrice(totalOrden)}
-            </p>
-          </div>
-        </div>
-
-        <p className="mt-4 text-xs text-gray-500 text-center">
-          En unos segundos se limpiará el carrito. El número de pedido quedará
-          guardado temporalmente para usarlo desde el botón de WhatsApp.
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border bg-white p-6 shadow-sm">
-      <h2 className="text-xl font-bold">Pago por transferencia bancaria</h2>
-
-      <p className="mt-3 text-gray-700">
-        Al confirmar, tu pedido quedará registrado como pendiente de pago por
-        transferencia bancaria.
-      </p>
-
-      <div className="mt-5 rounded-lg bg-blue-50 p-4 border border-blue-200">
-        <p className="text-sm text-blue-900">
-          Al confirmar este pedido, registraremos tu orden y dejaremos preparado
-          un mensaje de WhatsApp con todos los datos del pedido: número de
-          pedido, monto, productos comprados, datos del comprador y datos
-          bancarios.
-        </p>
-
-        <p className="mt-2 text-sm text-blue-900">
-          Importante: WhatsApp no se envía solo. Se abrirá con el mensaje listo y
-          tú solo debes presionar <strong>Enviar</strong>.
-        </p>
-
-        <p className="mt-2 text-sm text-blue-900">
-          Si envías ese WhatsApp, nosotros podremos comenzar a gestionar y
-          preparar tu pedido. Posteriormente, en esa misma conversación, podrás
-          adjuntar el comprobante de depósito o transferencia.
-        </p>
-
-        <p className="mt-2 text-sm text-blue-900">
-          Si no alcanzas a enviar el WhatsApp en ese momento, tendrás una
-          oportunidad más para enviarlo desde el botón verde{" "}
-          <strong>“¿Te ayudamos?”</strong>.
-        </p>
       </div>
 
-      <div className="mt-5 rounded-lg bg-gray-50 p-4 border">
-        <h3 className="font-semibold mb-3">Datos para transferencia</h3>
-
-        <p>
-          <strong>Nombre:</strong> {DATOS_BANCARIOS.titular}
-        </p>
-        <p>
-          <strong>RUT:</strong> {DATOS_BANCARIOS.rut}
-        </p>
-        <p>
-          <strong>Banco:</strong> {DATOS_BANCARIOS.banco}
-        </p>
-        <p>
-          <strong>Tipo de cuenta:</strong> {DATOS_BANCARIOS.tipoCuenta}
-        </p>
-        <p>
-          <strong>Número de cuenta:</strong> {DATOS_BANCARIOS.numeroCuenta}
-        </p>
-        <p>
-          <strong>Correo:</strong> {DATOS_BANCARIOS.correo}
-        </p>
-      </div>
-
-      <div className="mt-5 rounded-lg bg-orange-50 p-4 border border-orange-200">
-        <h3 className="font-semibold mb-3 text-orange-900">
+      <div className="mt-5 rounded-xl border border-orange-200 bg-orange-50 p-4">
+        <h3 className="mb-3 font-semibold text-orange-900">
           Resumen a transferir
         </h3>
 
-        <div className="space-y-1 text-sm text-orange-900">
-          <p>
-            <strong>Subtotal:</strong> {formatPrice(subtotal)}
-          </p>
+        <div className="space-y-2 text-sm text-orange-950">
+          <div className="flex justify-between gap-4">
+            <span>Subtotal productos</span>
+            <strong>{formatPrice(subtotal)}</strong>
+          </div>
 
-          <p>
-            <strong>Envío:</strong> {envio > 0 ? formatPrice(envio) : "Gratis"}
-          </p>
+          <div className="flex justify-between gap-4">
+            <span>Cargo por envío</span>
+            <strong>{envio > 0 ? formatPrice(envio) : "Gratis"}</strong>
+          </div>
 
           {descuento > 0 && (
-            <p>
-              <strong>Descuento{cupon ? ` ${cupon}` : ""}:</strong> -
-              {formatPrice(descuento)}
-            </p>
+            <div className="flex justify-between gap-4 text-green-700">
+              <span>Descuento{cupon ? ` ${cupon}` : ""}</span>
+              <strong>- {formatPrice(descuento)}</strong>
+            </div>
           )}
 
-          <p className="pt-1 text-base font-semibold">
-            Total a transferir: {formatPrice(total)}
-          </p>
+          <div className="mt-3 border-t border-orange-200 pt-3">
+            <div className="flex justify-between gap-4 text-base font-bold">
+              <span>Total a transferir</span>
+              <span>{formatPrice(total)}</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {error && (
-        <div className="mt-4 rounded-lg bg-red-50 p-3 text-red-700 border border-red-200">
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-red-700">
           {error}
         </div>
       )}
@@ -601,7 +640,7 @@ export default function PagoTransferencia({
       <button
         onClick={confirmarTransferencia}
         disabled={loading}
-        className="mt-5 rounded-lg bg-black px-5 py-3 text-white font-semibold disabled:opacity-50"
+        className="mt-5 w-full rounded-xl bg-black px-5 py-3 font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50 sm:w-auto"
       >
         {loading
           ? "Registrando pedido..."
